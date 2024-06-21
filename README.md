@@ -18,14 +18,14 @@ state from exception handlers.
 
 ```rust
 use core::cell::RefCell;
-use percpu::{exception_free, ExceptionLock, PerCpu, Platform};
+use percpu::{exception_free, Cores, ExceptionLock, PerCpu};
 
 /// The total number of CPU cores in the target system.
 const CORE_COUNT: usize = 2;
 
-struct PlatformImpl;
+struct CoresImpl;
 
-unsafe impl Platform for PlatformImpl {
+unsafe impl Cores for CoresImpl {
     fn core_index() -> usize {
         todo!("Return the index of the current CPU core, 0 or 1")
     }
@@ -38,7 +38,7 @@ struct CpuState {
 
 const EMPTY_CPU_STATE: ExceptionLock<RefCell<CpuState>> =
     ExceptionLock::new(RefCell::new(CpuState { foo: 0 }));
-static CPU_STATE: PerCpu<ExceptionLock<RefCell<CpuState>>, PlatformImpl, CORE_COUNT> =
+static CPU_STATE: PerCpu<ExceptionLock<RefCell<CpuState>>, CoresImpl, CORE_COUNT> =
     PerCpu::new([EMPTY_CPU_STATE; CORE_COUNT]);
 
 fn main() {

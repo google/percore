@@ -18,16 +18,16 @@
 //! ```
 //! use core::cell::RefCell;
 //! # #[cfg(target_arch = "aarch64")]
-//! use percpu::{exception_free, ExceptionLock, PerCpu, Platform};
+//! use percpu::{exception_free, Cores, ExceptionLock, PerCpu};
 //! # #[cfg(not(target_arch = "aarch64"))]
-//! # use percpu::{ExceptionLock, PerCpu, Platform};
+//! # use percpu::{Cores, ExceptionLock, PerCpu};
 //!
 //! /// The total number of CPU cores in the target system.
 //! const CORE_COUNT: usize = 2;
 //!
-//! struct PlatformImpl;
+//! struct CoresImpl;
 //!
-//! unsafe impl Platform for PlatformImpl {
+//! unsafe impl Cores for CoresImpl {
 //!     fn core_index() -> usize {
 //!         todo!("Return the index of the current CPU core, 0 or 1")
 //!     }
@@ -40,7 +40,7 @@
 //!
 //! const EMPTY_CPU_STATE: ExceptionLock<RefCell<CpuState>> =
 //!     ExceptionLock::new(RefCell::new(CpuState { foo: 0 }));
-//! static CPU_STATE: PerCpu<ExceptionLock<RefCell<CpuState>>, PlatformImpl, CORE_COUNT> =
+//! static CPU_STATE: PerCpu<ExceptionLock<RefCell<CpuState>>, CoresImpl, CORE_COUNT> =
 //!     PerCpu::new([EMPTY_CPU_STATE; CORE_COUNT]);
 //!
 //! fn main() {
@@ -70,7 +70,7 @@ use core::marker::PhantomData;
 /// # Safety
 ///
 /// `core_index` must never return the same index on different CPU cores.
-pub unsafe trait Platform {
+pub unsafe trait Cores {
     /// Returns the index of the current CPU core.
     fn core_index() -> usize;
 }
@@ -78,26 +78,27 @@ pub unsafe trait Platform {
 /// A type which allows values to be stored per CPU core. Only the value associated with the current
 /// CPU can be accessed.
 ///
-/// To use this type you must first implement the [`Platform`] trait for your platform.
+/// To use this type you must first implement the [`Cores`] trait for your platform.
 ///
-/// `P::core_index()` must always return a value <= `CORE_COUNT` or there will be a runtime panic.
-pub struct PerCpu<T, P: Platform, const CORE_COUNT: usize> {
+/// `C::core_index()` must always return a value less than `CORE_COUNT` or there will be a runtime
+/// panic.
+pub struct PerCpu<T, C: Cores, const CORE_COUNT: usize> {
     values: [T; CORE_COUNT],
-    _platform: PhantomData<P>,
+    _cores: PhantomData<C>,
 }
 
-impl<T, P: Platform, const CORE_COUNT: usize> PerCpu<T, P, CORE_COUNT> {
+impl<T, C: Cores, const CORE_COUNT: usize> PerCpu<T, C, CORE_COUNT> {
     /// Creates a new set of per-CPU values.
     pub const fn new(values: [T; CORE_COUNT]) -> Self {
         Self {
             values,
-            _platform: PhantomData,
+            _cores: PhantomData,
         }
     }
 
     /// Gets a shared reference to the value for the current CPU.
     pub fn get(&self) -> &T {
-        &self.values[P::core_index()]
+        &self.values[C::core_index()]
     }
 }
 
@@ -106,7 +107,7 @@ impl<T, P: Platform, const CORE_COUNT: usize> PerCpu<T, P, CORE_COUNT> {
 // the current CPU, and `ExceptionLock` requires exceptions to be disabled while accessing it which
 // prevents concurrent access to its contents from different exception contexts. The combination of
 // the two therefore prevents concurrent access to `T`.
-unsafe impl<T: Send, P: Platform, const CORE_COUNT: usize> Sync
-    for PerCpu<ExceptionLock<T>, P, CORE_COUNT>
+unsafe impl<T: Send, C: Cores, const CORE_COUNT: usize> Sync
+    for PerCpu<ExceptionLock<T>, C, CORE_COUNT>
 {
 }
