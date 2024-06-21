@@ -17,7 +17,10 @@
 //!
 //! ```
 //! use core::cell::RefCell;
+//! # #[cfg(target_arch = "aarch64")]
 //! use percpu::{exception_free, ExceptionLock, PerCpu, Platform};
+//! # #[cfg(not(target_arch = "aarch64"))]
+//! # use percpu::{ExceptionLock, PerCpu, Platform};
 //!
 //! /// The total number of CPU cores in the target system.
 //! const CORE_COUNT: usize = 2;
@@ -42,6 +45,7 @@
 //!
 //! fn main() {
 //!     // Mask exceptions while accessing mutable state.
+//!     # #[cfg(target_arch = "aarch64")]
 //!     exception_free(|token| {
 //!         // `token` proves that interrupts are masked, so we can safely access per-CPU mutable
 //!         // state.
