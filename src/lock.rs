@@ -7,12 +7,12 @@ use core::cell::{RefCell, RefMut};
 
 /// Allows access to the given value only while exceptions are masked, allowing it to be shared
 /// between exception contexts on a given CPU.
-pub struct CriticalCell<T> {
+pub struct ExceptionLock<T> {
     value: T,
 }
 
-impl<T> CriticalCell<T> {
-    /// Creates a new CriticalCell containing the given value.
+impl<T> ExceptionLock<T> {
+    /// Creates a new `ExceptionLock` containing the given value.
     pub const fn new(value: T) -> Self {
         Self { value }
     }
@@ -24,8 +24,8 @@ impl<T> CriticalCell<T> {
     }
 }
 
-impl<T> CriticalCell<RefCell<T>> {
-    /// Gets a unique reference to the contents of the RefCell, given a token proving that
+impl<T> ExceptionLock<RefCell<T>> {
+    /// Gets a unique reference to the contents of the `RefCell`, given a token proving that
     /// exceptions are currently masked.
     pub fn borrow_mut<'cs>(&'cs self, token: ExceptionFree<'cs>) -> RefMut<'cs, T> {
         self.borrow(token).borrow_mut()

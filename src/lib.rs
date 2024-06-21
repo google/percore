@@ -4,10 +4,10 @@
 
 #![no_std]
 
-mod criticalcell;
 mod exceptions;
+mod lock;
 
 pub use self::{
-    criticalcell::CriticalCell,
     exceptions::{exception_free, ExceptionFree},
+    lock::ExceptionLock,
 };
