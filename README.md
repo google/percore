@@ -55,7 +55,7 @@ This is not an officially supported Google product.
 
 ## Supported architectures
 
-Currently only aarch64 is fully supported. The crate will build for other architecture, but you'll
+Currently only aarch64 is fully supported. The crate will build for other architectures, but you'll
 need to provide your own implementation of the `exception_free` function. Patches are welcome to add
 support for other architectures.
 
