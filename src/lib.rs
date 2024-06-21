@@ -2,6 +2,54 @@
 // This project is dual-licensed under Apache 2.0 and MIT terms.
 // See LICENSE-APACHE and LICENSE-MIT for details.
 
+//! Safe per-CPU mutable state on no_std platforms through exception masking.
+//!
+//! This crate provides two main wrapper types: [`PerCpu`] to provide an instance of a value per
+//! CPU core, where each core can access only its instance, and [`ExceptionLock`] to guard a value
+//! so that it can only be accessed while exceptions are masked. These may be combined with
+//! `RefCell` to provide safe per-CPU mutable state.
+//!
+//! `ExceptionLock` may also be combined with a spinlock-based mutex (such as one provided by the
+//! [`spin`](https://crates.io/crates/spin) crate) to avoid deadlocks when accessing global mutable
+//! state from exception handlers.
+//!
+//! # Example
+//!
+//! ```
+//! use core::cell::RefCell;
+//! use percpu::{exception_free, ExceptionLock, PerCpu, Platform};
+//!
+//! /// The total number of CPU cores in the target system.
+//! const CORE_COUNT: usize = 2;
+//!
+//! struct PlatformImpl;
+//!
+//! unsafe impl Platform for PlatformImpl {
+//!     fn core_index() -> usize {
+//!         todo!("Return the index of the current CPU core, 0 or 1")
+//!     }
+//! }
+//!
+//! struct CpuState {
+//!     // Your per-CPU mutable state goes here...
+//!     foo: u32,
+//! }
+//!
+//! const EMPTY_CPU_STATE: ExceptionLock<RefCell<CpuState>> =
+//!     ExceptionLock::new(RefCell::new(CpuState { foo: 0 }));
+//! static CPU_STATE: PerCpu<ExceptionLock<RefCell<CpuState>>, PlatformImpl, CORE_COUNT> =
+//!     PerCpu::new([EMPTY_CPU_STATE; CORE_COUNT]);
+//!
+//! fn main() {
+//!     // Mask exceptions while accessing mutable state.
+//!     exception_free(|token| {
+//!         // `token` proves that interrupts are masked, so we can safely access per-CPU mutable
+//!         // state.
+//!         CPU_STATE.get().borrow_mut(token).foo = 42;
+//!     });
+//! }
+//! ```
+
 #![no_std]
 
 mod exceptions;
@@ -25,6 +73,8 @@ pub unsafe trait Platform {
 
 /// A type which allows values to be stored per CPU core. Only the value associated with the current
 /// CPU can be accessed.
+///
+/// To use this type you must first implement the [`Platform`] trait for your platform.
 ///
 /// `P::core_index()` must always return a value <= `CORE_COUNT` or there will be a runtime panic.
 pub struct PerCpu<T, P: Platform, const CORE_COUNT: usize> {
