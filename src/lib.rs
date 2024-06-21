@@ -7,10 +7,9 @@
 mod exceptions;
 mod lock;
 
-pub use self::{
-    exceptions::{exception_free, ExceptionFree},
-    lock::ExceptionLock,
-};
+#[cfg(target_arch = "aarch64")]
+pub use self::exceptions::exception_free;
+pub use self::{exceptions::ExceptionFree, lock::ExceptionLock};
 
 use core::marker::PhantomData;
 

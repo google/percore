@@ -13,6 +13,7 @@ use core::marker::PhantomData;
 ///
 /// Only IRQs, FIQs and SErrors can be masked. Synchronous exceptions cannot be masked and so may
 /// still occur.
+#[cfg(target_arch = "aarch64")]
 pub fn exception_free<T>(f: impl FnOnce(ExceptionFree<'_>) -> T) -> T {
     // Mask all exceptions and save previous mask state.
     let prev = mask();
@@ -39,11 +40,16 @@ pub struct ExceptionFree<'cs> {
 }
 
 impl<'cs> ExceptionFree<'cs> {
+    /// Constructs a new instance of `ExceptionFree`, promising that exceptions will remain masked
+    /// for at least its lifetime.
+    ///
+    /// This usually should not be called directly; instead use [`exception_free`].
+    ///
     /// # Safety
     ///
     /// `ExceptionFree` must only be constructed while exceptions are masked, and they must not be
     /// unmasked until after it is dropped.
-    unsafe fn new() -> Self {
+    pub unsafe fn new() -> Self {
         Self {
             _private: PhantomData,
         }
