@@ -13,7 +13,7 @@ use core::marker::PhantomData;
 ///
 /// Only IRQs, FIQs and SErrors can be masked. Synchronous exceptions cannot be masked and so may
 /// still occur.
-pub fn exception_free<T>(f: impl FnOnce(ExceptionFree) -> T) -> T {
+pub fn exception_free<T>(f: impl FnOnce(ExceptionFree<'_>) -> T) -> T {
     // Mask all exceptions and save previous mask state.
     let prev = mask();
     // SAFETY: We just masked exceptions.
