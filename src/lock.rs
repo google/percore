@@ -1,4 +1,4 @@
-// Copyright 2024 The percpu Authors.
+// Copyright 2024 The percore Authors.
 // This project is dual-licensed under Apache 2.0 and MIT terms.
 // See LICENSE-APACHE and LICENSE-MIT for details.
 
@@ -6,7 +6,7 @@ use crate::ExceptionFree;
 use core::cell::{RefCell, RefMut};
 
 /// Allows access to the given value only while exceptions are masked, allowing it to be shared
-/// between exception contexts on a given CPU.
+/// between exception contexts on a given core.
 pub struct ExceptionLock<T> {
     value: T,
 }

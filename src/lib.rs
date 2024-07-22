@@ -1,13 +1,13 @@
-// Copyright 2024 The percpu Authors.
+// Copyright 2024 The percore Authors.
 // This project is dual-licensed under Apache 2.0 and MIT terms.
 // See LICENSE-APACHE and LICENSE-MIT for details.
 
-//! Safe per-CPU mutable state on no_std platforms through exception masking.
+//! Safe per-CPU core mutable state on no_std platforms through exception masking.
 //!
-//! This crate provides two main wrapper types: [`PerCpu`] to provide an instance of a value per
+//! This crate provides two main wrapper types: [`PerCore`] to provide an instance of a value per
 //! CPU core, where each core can access only its instance, and [`ExceptionLock`] to guard a value
 //! so that it can only be accessed while exceptions are masked. These may be combined with
-//! `RefCell` to provide safe per-CPU mutable state.
+//! `RefCell` to provide safe per-core mutable state.
 //!
 //! `ExceptionLock` may also be combined with a spinlock-based mutex (such as one provided by the
 //! [`spin`](https://crates.io/crates/spin) crate) to avoid deadlocks when accessing global mutable
@@ -18,9 +18,9 @@
 //! ```
 //! use core::cell::RefCell;
 //! # #[cfg(target_arch = "aarch64")]
-//! use percpu::{exception_free, Cores, ExceptionLock, PerCpu};
+//! use percore::{exception_free, Cores, ExceptionLock, PerCore};
 //! # #[cfg(not(target_arch = "aarch64"))]
-//! # use percpu::{Cores, ExceptionLock, PerCpu};
+//! # use percore::{Cores, ExceptionLock, PerCore};
 //!
 //! /// The total number of CPU cores in the target system.
 //! const CORE_COUNT: usize = 2;
@@ -33,23 +33,23 @@
 //!     }
 //! }
 //!
-//! struct CpuState {
-//!     // Your per-CPU mutable state goes here...
+//! struct CoreState {
+//!     // Your per-core mutable state goes here...
 //!     foo: u32,
 //! }
 //!
-//! const EMPTY_CPU_STATE: ExceptionLock<RefCell<CpuState>> =
-//!     ExceptionLock::new(RefCell::new(CpuState { foo: 0 }));
-//! static CPU_STATE: PerCpu<ExceptionLock<RefCell<CpuState>>, CoresImpl, CORE_COUNT> =
-//!     PerCpu::new([EMPTY_CPU_STATE; CORE_COUNT]);
+//! const EMPTY_CORE_STATE: ExceptionLock<RefCell<CoreState>> =
+//!     ExceptionLock::new(RefCell::new(CoreState { foo: 0 }));
+//! static CORE_STATE: PerCore<ExceptionLock<RefCell<CoreState>>, CoresImpl, CORE_COUNT> =
+//!     PerCore::new([EMPTY_CORE_STATE; CORE_COUNT]);
 //!
 //! fn main() {
 //!     // Mask exceptions while accessing mutable state.
 //!     # #[cfg(target_arch = "aarch64")]
 //!     exception_free(|token| {
-//!         // `token` proves that interrupts are masked, so we can safely access per-CPU mutable
+//!         // `token` proves that interrupts are masked, so we can safely access per-core mutable
 //!         // state.
-//!         CPU_STATE.get().borrow_mut(token).foo = 42;
+//!         CORE_STATE.get().borrow_mut(token).foo = 42;
 //!     });
 //! }
 //! ```
@@ -76,19 +76,19 @@ pub unsafe trait Cores {
 }
 
 /// A type which allows values to be stored per CPU core. Only the value associated with the current
-/// CPU can be accessed.
+/// CPU core can be accessed.
 ///
 /// To use this type you must first implement the [`Cores`] trait for your platform.
 ///
 /// `C::core_index()` must always return a value less than `CORE_COUNT` or there will be a runtime
 /// panic.
-pub struct PerCpu<T, C: Cores, const CORE_COUNT: usize> {
+pub struct PerCore<T, C: Cores, const CORE_COUNT: usize> {
     values: [T; CORE_COUNT],
     _cores: PhantomData<C>,
 }
 
-impl<T, C: Cores, const CORE_COUNT: usize> PerCpu<T, C, CORE_COUNT> {
-    /// Creates a new set of per-CPU values.
+impl<T, C: Cores, const CORE_COUNT: usize> PerCore<T, C, CORE_COUNT> {
+    /// Creates a new set of per-core values.
     pub const fn new(values: [T; CORE_COUNT]) -> Self {
         Self {
             values,
@@ -96,18 +96,18 @@ impl<T, C: Cores, const CORE_COUNT: usize> PerCpu<T, C, CORE_COUNT> {
         }
     }
 
-    /// Gets a shared reference to the value for the current CPU.
+    /// Gets a shared reference to the value for the current CPU core.
     pub fn get(&self) -> &T {
         &self.values[C::core_index()]
     }
 }
 
-// SAFETY: Both different CPUs and different exception contexts must be treated as separate
-// 'threads' for the purposes of Rust's memory model. `PerCpu` only allows access to the value for
-// the current CPU, and `ExceptionLock` requires exceptions to be disabled while accessing it which
+// SAFETY: Both different CPU cores and different exception contexts must be treated as separate
+// 'threads' for the purposes of Rust's memory model. `PerCore` only allows access to the value for
+// the current core, and `ExceptionLock` requires exceptions to be disabled while accessing it which
 // prevents concurrent access to its contents from different exception contexts. The combination of
 // the two therefore prevents concurrent access to `T`.
 unsafe impl<T: Send, C: Cores, const CORE_COUNT: usize> Sync
-    for PerCpu<ExceptionLock<T>, C, CORE_COUNT>
+    for PerCore<ExceptionLock<T>, C, CORE_COUNT>
 {
 }
