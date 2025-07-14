@@ -11,6 +11,7 @@
 - Added support for `PerCore<Box<[T]>, C>`. This lets you determine the number of cores at runtime
   rather than having to have it be a compile-time constant. This is only available with the new
   `alloc` feature.
+- `ExceptionLock` and `PerCore` now implement `Default`.
 
 ### Bugfixes
 
