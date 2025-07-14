@@ -40,7 +40,7 @@
 //!
 //! const EMPTY_CORE_STATE: ExceptionLock<RefCell<CoreState>> =
 //!     ExceptionLock::new(RefCell::new(CoreState { foo: 0 }));
-//! static CORE_STATE: PerCore<ExceptionLock<RefCell<CoreState>>, CoresImpl, CORE_COUNT> =
+//! static CORE_STATE: PerCore<[ExceptionLock<RefCell<CoreState>>; CORE_COUNT], CoresImpl> =
 //!     PerCore::new([EMPTY_CORE_STATE; CORE_COUNT]);
 //!
 //! fn main() {
@@ -80,22 +80,26 @@ pub unsafe trait Cores {
 ///
 /// To use this type you must first implement the [`Cores`] trait for your platform.
 ///
-/// `C::core_index()` must always return a value less than `CORE_COUNT` or there will be a runtime
-/// panic.
-pub struct PerCore<T, C: Cores, const CORE_COUNT: usize> {
-    values: [T; CORE_COUNT],
+/// `C::core_index()` must always return a value less than the length of `V` or there will be a
+/// runtime panic.
+#[derive(Default)]
+#[repr(transparent)]
+pub struct PerCore<V: ?Sized, C: Cores> {
     _cores: PhantomData<C>,
+    values: V,
 }
 
-impl<T, C: Cores, const CORE_COUNT: usize> PerCore<T, C, CORE_COUNT> {
+impl<V, C: Cores> PerCore<V, C> {
     /// Creates a new set of per-core values.
-    pub const fn new(values: [T; CORE_COUNT]) -> Self {
+    pub const fn new(values: V) -> Self {
         Self {
             values,
             _cores: PhantomData,
         }
     }
+}
 
+impl<T, C: Cores, const CORE_COUNT: usize> PerCore<[T; CORE_COUNT], C> {
     /// Gets a shared reference to the value for the current CPU core.
     pub fn get(&self) -> &T {
         &self.values[C::core_index()]
@@ -108,7 +112,7 @@ impl<T, C: Cores, const CORE_COUNT: usize> PerCore<T, C, CORE_COUNT> {
 // prevents concurrent access to its contents from different exception contexts. The combination of
 // the two therefore prevents concurrent access to `T`.
 unsafe impl<T: Send, C: Cores, const CORE_COUNT: usize> Sync
-    for PerCore<ExceptionLock<T>, C, CORE_COUNT>
+    for PerCore<[ExceptionLock<T>; CORE_COUNT], C>
 {
 }
 
@@ -129,7 +133,7 @@ mod tests {
 
     #[test]
     fn percore_state() {
-        static STATE: PerCore<ExceptionLock<RefCell<u32>>, FakeCoresImpl, 4> =
+        static STATE: PerCore<[ExceptionLock<RefCell<u32>>; 4], FakeCoresImpl> =
             PerCore::new([const { ExceptionLock::new(RefCell::new(42)) }; 4]);
 
         {
