@@ -56,6 +56,11 @@
 
 #![no_std]
 
+#[cfg(feature = "alloc")]
+extern crate alloc;
+
+#[cfg(feature = "alloc")]
+mod boxed;
 mod exceptions;
 mod lock;
 

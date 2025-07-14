@@ -9,7 +9,9 @@ repository = "https://github.com/google/percore"
 keywords = ["aarch64", "exceptions"]
 categories = ["embedded", "no-std", "rust-patterns"]
 
-[dependencies]
+[features]
+alloc = []
+default = ["alloc"]
 
 [package.metadata.docs.rs]
 default-target = "aarch64-unknown-none"

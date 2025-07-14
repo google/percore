@@ -6,6 +6,12 @@
 
 - Changed type from `PerCore<T, C, CORE_COUNT>` to `PerCore<[T; CORE_COUNT], C>`.
 
+### New features
+
+- Added support for `PerCore<Box<[T]>, C>`. This lets you determine the number of cores at runtime
+  rather than having to have it be a compile-time constant. This is only available with the new
+  `alloc` feature.
+
 ### Bugfixes
 
 - `exception_free` will restore the exception mask state even if the function passed to it panics,
