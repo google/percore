@@ -111,3 +111,32 @@ unsafe impl<T: Send, C: Cores, const CORE_COUNT: usize> Sync
     for PerCore<ExceptionLock<T>, C, CORE_COUNT>
 {
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use core::cell::RefCell;
+
+    /// A Fake implementation of `Cores` for test, that will always return 0.
+    pub struct FakeCoresImpl;
+
+    // SAFETY: Tests are all run on a single core.
+    unsafe impl Cores for FakeCoresImpl {
+        fn core_index() -> usize {
+            0
+        }
+    }
+
+    #[test]
+    fn percore_state() {
+        static STATE: PerCore<ExceptionLock<RefCell<u32>>, FakeCoresImpl, 4> =
+            PerCore::new([const { ExceptionLock::new(RefCell::new(42)) }; 4]);
+
+        {
+            let token = unsafe { ExceptionFree::new() };
+            assert_eq!(*STATE.get().borrow_mut(token), 42);
+            *STATE.get().borrow_mut(token) += 1;
+            assert_eq!(*STATE.get().borrow_mut(token), 43);
+        }
+    }
+}
