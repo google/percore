@@ -38,7 +38,7 @@ struct CoreState {
 
 const EMPTY_CORE_STATE: ExceptionLock<RefCell<CoreState>> =
     ExceptionLock::new(RefCell::new(CoreState { foo: 0 }));
-static CORE_STATE: PerCore<ExceptionLock<RefCell<CoreState>>, CoresImpl, CORE_COUNT> =
+static CORE_STATE: PerCore<[ExceptionLock<RefCell<CoreState>>; CORE_COUNT], CoresImpl> =
     PerCore::new([EMPTY_CORE_STATE; CORE_COUNT]);
 
 fn main() {
