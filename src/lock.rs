@@ -7,6 +7,7 @@ use core::cell::{RefCell, RefMut};
 
 /// Allows access to the given value only while exceptions are masked, allowing it to be shared
 /// between exception contexts on a given core.
+#[derive(Default)]
 pub struct ExceptionLock<T> {
     value: T,
 }
