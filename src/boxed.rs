@@ -34,10 +34,10 @@ impl<T: Default, C: Cores> PerCore<Box<[T]>, C> {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::{tests::FakeCoresImpl, ExceptionFree};
+    use crate::{ExceptionFree, tests::FakeCoresImpl};
     use alloc::boxed::Box;
     use core::{cell::RefCell, iter::repeat_with};
-    use spin::{once::Once, Lazy};
+    use spin::{Lazy, once::Once};
 
     #[test]
     fn percore_boxed_slice() {
