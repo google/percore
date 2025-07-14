@@ -30,3 +30,47 @@ impl<T: Default, C: Cores> PerCore<Box<[T]>, C> {
         Self::new(boxed_slice)
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::{tests::FakeCoresImpl, ExceptionFree};
+    use alloc::boxed::Box;
+    use core::{cell::RefCell, iter::repeat_with};
+    use spin::{once::Once, Lazy};
+
+    #[test]
+    fn percore_boxed_slice() {
+        static STATE: Once<PerCore<Box<[ExceptionLock<RefCell<u32>>]>, FakeCoresImpl>> =
+            Once::new();
+
+        STATE.call_once(|| {
+            let boxed_slice: Box<[ExceptionLock<RefCell<u32>>]> =
+                repeat_with(|| ExceptionLock::new(RefCell::new(42)))
+                    .take(4)
+                    .collect();
+
+            PerCore::<Box<[_]>, _>::new(boxed_slice)
+        });
+
+        {
+            let token = unsafe { ExceptionFree::new() };
+            assert_eq!(*STATE.get().unwrap().get().borrow_mut(token), 42);
+            *STATE.get().unwrap().get().borrow_mut(token) += 1;
+            assert_eq!(*STATE.get().unwrap().get().borrow_mut(token), 43);
+        }
+    }
+
+    #[test]
+    fn percore_boxed_slice_default() {
+        static STATE: Lazy<PerCore<Box<[ExceptionLock<RefCell<u32>>]>, FakeCoresImpl>> =
+            Lazy::new(|| PerCore::new_with_default(4));
+
+        {
+            let token = unsafe { ExceptionFree::new() };
+            assert_eq!(*STATE.get().borrow_mut(token), 0);
+            *STATE.get().borrow_mut(token) += 1;
+            assert_eq!(*STATE.get().borrow_mut(token), 1);
+        }
+    }
+}

@@ -13,5 +13,11 @@ categories = ["embedded", "no-std", "rust-patterns"]
 alloc = []
 default = ["alloc"]
 
+[dev-dependencies]
+spin = { version = "0.10.0", default-features = false, features = [
+  "lazy",
+  "once",
+] }
+
 [package.metadata.docs.rs]
 default-target = "aarch64-unknown-none"
