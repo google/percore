@@ -88,6 +88,15 @@ pub unsafe trait Cores {
 /// `C::core_index()` must always return a value less than the length of `V` or there will be a
 /// runtime panic.
 #[derive(Default)]
+#[cfg_attr(
+    feature = "zerocopy",
+    derive(
+        zerocopy::FromBytes,
+        zerocopy::Immutable,
+        zerocopy::KnownLayout,
+        zerocopy::Unaligned
+    )
+)]
 #[repr(transparent)]
 pub struct PerCore<V: ?Sized, C: Cores> {
     _cores: PhantomData<C>,

@@ -8,6 +8,16 @@ use core::cell::{RefCell, RefMut};
 /// Allows access to the given value only while exceptions are masked, allowing it to be shared
 /// between exception contexts on a given core.
 #[derive(Default)]
+#[cfg_attr(
+    feature = "zerocopy",
+    derive(
+        zerocopy::FromBytes,
+        zerocopy::Immutable,
+        zerocopy::KnownLayout,
+        zerocopy::Unaligned
+    )
+)]
+#[repr(transparent)]
 pub struct ExceptionLock<T> {
     value: T,
 }
@@ -18,8 +28,8 @@ impl<T> ExceptionLock<T> {
         Self { value }
     }
 
-    /// Gets a unique reference to the contents of the cell, given a token proving that exceptions
-    /// are currently masked.
+    /// Gets a reference to the contents of the cell, given a token proving that exceptions are
+    /// currently masked.
     pub fn borrow<'cs>(&'cs self, _: ExceptionFree<'cs>) -> &'cs T {
         &self.value
     }
