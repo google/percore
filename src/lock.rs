@@ -18,8 +18,8 @@ impl<T> ExceptionLock<T> {
         Self { value }
     }
 
-    /// Gets a unique reference to the contents of the cell, given a token proving that exceptions
-    /// are currently masked.
+    /// Gets a reference to the contents of the cell, given a token proving that exceptions are
+    /// currently masked.
     pub fn borrow<'cs>(&'cs self, _: ExceptionFree<'cs>) -> &'cs T {
         &self.value
     }
