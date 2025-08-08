@@ -1,5 +1,13 @@
 # Changelog
 
+## Unreleased
+
+### New features
+
+- Made `ExceptionLock` `repr(transparent)`.
+- Derive zerocopy traits for `PerCore` and `ExceptionLock`. This is behind the new `zerocopy`
+  feature, which is enabled by default.
+
 ## 0.2.0
 
 ### Breaking changes

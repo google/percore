@@ -8,6 +8,16 @@ use core::cell::{RefCell, RefMut};
 /// Allows access to the given value only while exceptions are masked, allowing it to be shared
 /// between exception contexts on a given core.
 #[derive(Default)]
+#[cfg_attr(
+    feature = "zerocopy",
+    derive(
+        zerocopy::FromBytes,
+        zerocopy::Immutable,
+        zerocopy::KnownLayout,
+        zerocopy::Unaligned
+    )
+)]
+#[repr(transparent)]
 pub struct ExceptionLock<T> {
     value: T,
 }

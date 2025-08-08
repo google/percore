@@ -11,7 +11,10 @@ categories = ["embedded", "no-std", "rust-patterns"]
 
 [features]
 alloc = []
-default = ["alloc"]
+default = ["alloc", "zerocopy"]
+
+[dependencies]
+zerocopy = { version = "0.8.26", optional = true, features = ["derive"] }
 
 [dev-dependencies]
 spin = { version = "0.10.0", default-features = false, features = [
