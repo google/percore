@@ -7,6 +7,11 @@ mod aarch64;
 #[cfg(target_arch = "aarch64")]
 use aarch64::{mask, restore};
 
+#[cfg(target_arch = "arm")]
+mod aarch32;
+#[cfg(target_arch = "arm")]
+use aarch32::{mask, restore};
+
 use core::marker::PhantomData;
 
 /// Scope guard for exception-free sections.
@@ -56,7 +61,7 @@ impl Drop for ExceptionGuard {
 ///
 /// Only IRQs, FIQs and SErrors can be masked. Synchronous exceptions cannot be masked and so may
 /// still occur.
-#[cfg(target_arch = "aarch64")]
+#[cfg(any(target_arch = "aarch64", target_arch = "arm"))]
 pub fn exception_free<T>(f: impl FnOnce(ExceptionFree<'_>) -> T) -> T {
     // Mask all exceptions and save previous mask state.
     // SAFETY: We drop the scope guard after the lifetime of the token ends. Any other
