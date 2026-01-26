@@ -23,4 +23,6 @@ spin = { version = "0.10.0", default-features = false, features = [
 ] }
 
 [package.metadata.docs.rs]
+all-features = true
 default-target = "aarch64-unknown-none"
+rustdoc-args = ["--cfg", "docsrs"]
