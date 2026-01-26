@@ -5,6 +5,7 @@
 ### New features
 
 - Added `PerCore::get_mut`.
+- Added support for AArch32.
 
 ## 0.2.1
 
