@@ -118,6 +118,11 @@ impl<T, C: Cores, const CORE_COUNT: usize> PerCore<[T; CORE_COUNT], C> {
     pub fn get(&self) -> &T {
         &self.values[C::core_index()]
     }
+
+    /// Gets a unique reference to the value for the current CPU core.
+    pub fn get_mut(&mut self) -> &mut T {
+        &mut self.values[C::core_index()]
+    }
 }
 
 // SAFETY: Both different CPU cores and different exception contexts must be treated as separate

@@ -18,6 +18,11 @@ impl<T, C: Cores> PerCore<Box<[T]>, C> {
     pub fn get(&self) -> &T {
         &self.values[C::core_index()]
     }
+
+    /// Gets a unique reference to the value for the current CPU core.
+    pub fn get_mut(&mut self) -> &mut T {
+        &mut self.values[C::core_index()]
+    }
 }
 
 impl<T: Default, C: Cores> PerCore<Box<[T]>, C> {
