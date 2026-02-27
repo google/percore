@@ -1,5 +1,11 @@
 # Changelog
 
+## Unreleased
+
+### Bugfixes
+
+- Fixed broken build on aarch32.
+
 ## 0.2.2
 
 ### New features

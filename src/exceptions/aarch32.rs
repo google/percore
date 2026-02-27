@@ -4,14 +4,16 @@
 
 use core::arch::asm;
 
+pub type Mask = u32;
+
 /// Mask for the SError interrupt mask, IRQ mask and FIQ mask bits of CPSR.
 const AIF_MASK: u32 = 0x7 << 6;
 
 /// Masks IRQs, FIQs, SErrors and Debug exceptions.
 ///
 /// Returns the previous mask value, to be passed to [`unmask`].
-pub fn mask() -> u32 {
-    let prev: u32;
+pub fn mask() -> Mask {
+    let prev: Mask;
 
     // SAFETY: Writing to this system register doesn't access memory in any way.
     unsafe {
@@ -31,7 +33,7 @@ pub fn mask() -> u32 {
 /// # Safety
 ///
 /// Must not be called while a corresponding `ExceptionFree` token exists.
-pub unsafe fn restore(prev: u32) {
+pub unsafe fn restore(prev: Mask) {
     let mask = prev | !AIF_MASK;
 
     // SAFETY: Writing to this system register doesn't access memory in any way. The caller promised

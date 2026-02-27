@@ -4,10 +4,12 @@
 
 use core::arch::asm;
 
+pub type Mask = u64;
+
 /// Masks IRQs, FIQs, SErrors and Debug exceptions.
 ///
 /// Returns the previous mask value, to be passed to [`unmask`].
-pub fn mask() -> u64 {
+pub fn mask() -> Mask {
     let prev;
 
     // SAFETY: Writing to this system register doesn't access memory in any way.
@@ -28,7 +30,7 @@ pub fn mask() -> u64 {
 /// # Safety
 ///
 /// Must not be called while a corresponding `ExceptionFree` token exists.
-pub unsafe fn restore(prev: u64) {
+pub unsafe fn restore(prev: Mask) {
     // SAFETY: Writing to this system register doesn't access memory in any way. The caller promised
     // that there is no `ExceptionFree` token.
     unsafe {
