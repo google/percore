@@ -7,12 +7,12 @@ use core::arch::asm;
 /// Exception mask value which has been saved to later be restored.
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
 #[repr(transparent)]
-pub struct Mask(u32);
+pub struct ExceptionMask(u32);
 
 /// Mask for the SError interrupt mask, IRQ mask and FIQ mask bits of CPSR.
 const AIF_MASK: u32 = 0x7 << 6;
 
-impl Mask {
+impl ExceptionMask {
     /// Masks IRQs, FIQs, SErrors and Debug exceptions.
     ///
     /// Returns the previous mask value, to be passed to [`unmask`].

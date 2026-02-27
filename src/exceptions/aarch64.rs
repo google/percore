@@ -7,9 +7,9 @@ use core::arch::asm;
 /// Exception mask value which has been saved to later be restored.
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
 #[repr(transparent)]
-pub struct Mask(u64);
+pub struct ExceptionMask(u64);
 
-impl Mask {
+impl ExceptionMask {
     /// Masks IRQs, FIQs, SErrors and Debug exceptions.
     ///
     /// Returns the previous mask value, to be passed to [`unmask`].

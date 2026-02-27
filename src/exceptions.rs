@@ -5,12 +5,12 @@
 #[cfg(target_arch = "aarch64")]
 mod aarch64;
 #[cfg(target_arch = "aarch64")]
-use aarch64::Mask;
+use aarch64::ExceptionMask;
 
 #[cfg(target_arch = "arm")]
 mod aarch32;
 #[cfg(target_arch = "arm")]
-use aarch32::Mask;
+use aarch32::ExceptionMask;
 
 use core::marker::PhantomData;
 
@@ -24,7 +24,7 @@ use core::marker::PhantomData;
 #[cfg(any(target_arch = "aarch64", target_arch = "arm"))]
 struct ExceptionGuard {
     /// Previous exception mask state.
-    prev: Mask,
+    prev: ExceptionMask,
 }
 
 #[cfg(any(target_arch = "aarch64", target_arch = "arm"))]
@@ -37,7 +37,9 @@ impl ExceptionGuard {
     /// multiple `ExceptionGuard`s are created then they must be dropped in the reverse order that
     /// they are created.
     unsafe fn mask<'cs>() -> (Self, ExceptionFree<'cs>) {
-        let guard = Self { prev: Mask::mask() };
+        let guard = Self {
+            prev: ExceptionMask::mask(),
+        };
         // SAFETY: We just masked exceptions, and our caller promises not to drop the guard before
         // the token.
         let token = unsafe { ExceptionFree::new() };
