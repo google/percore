@@ -20,9 +20,16 @@ jobs:
         with:
           toolchain: stable
           target: aarch64-unknown-none
+      - name: Install armv7a toolchain
+        uses: actions-rs/toolchain@v1
+        with:
+          toolchain: stable
+          target: armv7a-none-eabi
       - name: Build
         run: cargo build
-      - name: Build for x68_64-unknown-linux-gnu
+      - name: Build for armv7a-none-eabi
+        run: cargo build --target=armv7a-none-eabi
+      - name: Build for x86_64-unknown-linux-gnu
         run: cargo build --target=x86_64-unknown-linux-gnu
       - name: Run tests
         run: cargo test --target=x86_64-unknown-linux-gnu
