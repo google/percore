@@ -4,38 +4,45 @@
 
 use core::arch::asm;
 
-/// Masks IRQs, FIQs, SErrors and Debug exceptions.
-///
-/// Returns the previous mask value, to be passed to [`unmask`].
-pub fn mask() -> u64 {
-    let prev;
+/// Exception mask value which has been saved to later be restored.
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+#[repr(transparent)]
+pub struct ExceptionMask(u64);
 
-    // SAFETY: Writing to this system register doesn't access memory in any way.
-    unsafe {
-        asm!(
-            "mrs {prev:x}, DAIF",
-            "msr DAIFSet, #0xf",
-            options(nostack),
-            prev = out(reg) prev,
-        );
+impl ExceptionMask {
+    /// Masks IRQs, FIQs, SErrors and Debug exceptions.
+    ///
+    /// Returns the previous mask value, to be passed to [`unmask`].
+    pub fn mask() -> Self {
+        let prev;
+
+        // SAFETY: Writing to this system register doesn't access memory in any way.
+        unsafe {
+            asm!(
+                "mrs {prev:x}, DAIF",
+                "msr DAIFSet, #0xf",
+                options(nostack),
+                prev = out(reg) prev,
+            );
+        }
+
+        Self(prev)
     }
 
-    prev
-}
-
-/// Restores the given previous exception mask value.
-///
-/// # Safety
-///
-/// Must not be called while a corresponding `ExceptionFree` token exists.
-pub unsafe fn restore(prev: u64) {
-    // SAFETY: Writing to this system register doesn't access memory in any way. The caller promised
-    // that there is no `ExceptionFree` token.
-    unsafe {
-        asm!(
-            "msr DAIF, {prev:x}",
-            options(nostack),
-            prev=in(reg)prev,
-        );
+    /// Restores the given previous exception mask value.
+    ///
+    /// # Safety
+    ///
+    /// Must not be called while a corresponding `ExceptionFree` token exists.
+    pub unsafe fn restore(self) {
+        // SAFETY: Writing to this system register doesn't access memory in any way. The caller promised
+        // that there is no `ExceptionFree` token.
+        unsafe {
+            asm!(
+                "msr DAIF, {prev:x}",
+                options(nostack),
+                prev = in(reg) self.0,
+            );
+        }
     }
 }
