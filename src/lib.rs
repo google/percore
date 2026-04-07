@@ -112,6 +112,11 @@ impl<V, C: Cores> PerCore<V, C> {
             _cores: PhantomData,
         }
     }
+
+    /// Consumes the `PerCore`, returning the wrapped value.
+    pub fn into_inner(self) -> V {
+        self.values
+    }
 }
 
 impl<T, C: Cores, const CORE_COUNT: usize> PerCore<[T; CORE_COUNT], C> {

@@ -2,7 +2,7 @@
 
 ## Unreleased
 
-- Added `ExceptionLock::into_inner`.
+- Added `into_inner` methods for `ExceptionLock` and `PerCore`.
 
 ## 0.2.3
 
