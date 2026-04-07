@@ -1,5 +1,9 @@
 # Changelog
 
+## Unreleased
+
+- Added `ExceptionLock::into_inner`.
+
 ## 0.2.3
 
 ### Bugfixes
