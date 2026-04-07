@@ -2,6 +2,8 @@
 
 ## 0.2.4
 
+### New features
+
 - Added `into_inner` methods for `ExceptionLock` and `PerCore`.
 
 ## 0.2.3
