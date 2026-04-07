@@ -33,6 +33,11 @@ impl<T> ExceptionLock<T> {
     pub fn borrow<'cs>(&'cs self, _: ExceptionFree<'cs>) -> &'cs T {
         &self.value
     }
+
+    /// Consumes the `ExceptionLock`, returning the wrapped value.
+    pub fn into_inner(self) -> T {
+        self.value
+    }
 }
 
 impl<T> ExceptionLock<RefCell<T>> {

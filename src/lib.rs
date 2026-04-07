@@ -163,4 +163,14 @@ mod tests {
             assert_eq!(*STATE.get().borrow_mut(token), 43);
         }
     }
+
+    #[test]
+    fn exception_lock_into_inner() {
+        let lock = ExceptionLock::new(42u32);
+        assert_eq!(lock.into_inner(), 42);
+
+        let lock = ExceptionLock::new(RefCell::new(100u32));
+        let inner = lock.into_inner();
+        assert_eq!(inner.into_inner(), 100);
+    }
 }
