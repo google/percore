@@ -14,7 +14,7 @@ alloc = []
 default = ["alloc", "zerocopy"]
 
 [dependencies]
-zerocopy = { version = "0.8.49", optional = true, features = ["derive"] }
+zerocopy = { version = "0.8.50", optional = true, features = ["derive"] }
 
 [dev-dependencies]
 spin = { version = "0.12.0", default-features = false, features = [
