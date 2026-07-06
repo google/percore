@@ -42,18 +42,18 @@ mod tests {
     use crate::{ExceptionFree, tests::FakeCoresImpl};
     use alloc::boxed::Box;
     use core::{cell::RefCell, iter::repeat_with};
-    use spin::{Lazy, once::Once};
+    use spin::{LazyLock, once::Once};
+
+    type BoxedSlice = Box<[ExceptionLock<RefCell<u32>>]>;
 
     #[test]
     fn percore_boxed_slice() {
-        static STATE: Once<PerCore<Box<[ExceptionLock<RefCell<u32>>]>, FakeCoresImpl>> =
-            Once::new();
+        static STATE: Once<PerCore<BoxedSlice, FakeCoresImpl>> = Once::new();
 
         STATE.call_once(|| {
-            let boxed_slice: Box<[ExceptionLock<RefCell<u32>>]> =
-                repeat_with(|| ExceptionLock::new(RefCell::new(42)))
-                    .take(4)
-                    .collect();
+            let boxed_slice: BoxedSlice = repeat_with(|| ExceptionLock::new(RefCell::new(42)))
+                .take(4)
+                .collect();
 
             PerCore::<Box<[_]>, _>::new(boxed_slice)
         });
@@ -68,8 +68,8 @@ mod tests {
 
     #[test]
     fn percore_boxed_slice_default() {
-        static STATE: Lazy<PerCore<Box<[ExceptionLock<RefCell<u32>>]>, FakeCoresImpl>> =
-            Lazy::new(|| PerCore::new_with_default(4));
+        static STATE: LazyLock<PerCore<BoxedSlice, FakeCoresImpl>> =
+            LazyLock::new(|| PerCore::new_with_default(4));
 
         {
             let token = unsafe { ExceptionFree::new() };
