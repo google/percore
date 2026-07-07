@@ -68,16 +68,16 @@ The `derive` feature enables the use of the `#[percore::percore]` attribute whic
 variables into per-core variables. This is an orthogonal way of declaring per-core variables to the
 regular `PerCore` based method.
 
-By default, the primary core is assumed to have index `#0`, with the secondary cores following it
+By default, the primary core is assumed to have index 0, with the secondary cores following it
 sequentially. Each core has its own per-core area, and these areas are laid out contiguously in
 memory, like an array of sections. Only the primary core's area, represented by the `.percore`
-section, and it contains the initial values for per-core variables. The corresponding areas for the
-secondary cores, represented by the `.percore_secondary` section, are not included in the image.
-The provided functions are suitable for tiny and small memory models.
+section is included in the image, and it contains the initial values for per-core variables. The
+corresponding areas for the secondary cores, represented by the `.percore_secondary` section, are
+not included in the image. The provided functions are suitable for tiny and small memory models.
 
 Projects may use a different memory layout, provided that they copy the initial variable values into
-each secondary core's per-core area and implement the corresponding
-`#[percore::percore_local_offset]` function to retrieve the appropriate offset.
+each secondary core's per-core area and implement `percore::derive::PercoreLocalOffset` on a type
+marked with `#[percore::percore_local_offset]` to retrieve the appropriate offset.
 
 Pros:
 * At the declaration of the variable it is not necessary to have a `Cores` implementation.
@@ -88,6 +88,7 @@ Pros:
 Cons:
 * Can only be used for global variables.
 * More complex setup.
+* Currently, this is only implemented for `AArch64` targets.
 
 It requires the following actions from the consuming project:
 
@@ -95,8 +96,8 @@ It requires the following actions from the consuming project:
 * Calculate the local core offset at boot time on each core using
   `percore_calculate_local_offset(core_index)`.
 * Store this offset in a project specific way.
-* Implement a function that retrieves the previously stored offset and mark it with
-  `#[percore::percore_local_offset]`.
+* Implement `percore::derive::PercoreLocalOffset` for a type that retrieves the previously stored
+  offset and mark the type with `#[percore::percore_local_offset]`.
 * Allocate `.percore` and `.percore_secondary` sections in the linker script and mark their
   boundaries using the `__PERCORE_START__`, `__PERCORE_END__`, `__PERCORE_SECONDARY_START__` and
   `__PERCORE_SECONDARY_END__` symbols. It is recommended to align these sections to the cache line
@@ -110,6 +111,8 @@ The primary core initializes the secondary per-core areas. Each secondary core t
 offset from its linear index and stores it in `TPIDR_EL1` before entering `main`.
 
 ```rust
+use core::arch::global_asm;
+
 global_asm!(
     "init_primary:
         bl {percore_copy_secondary_data}
@@ -129,14 +132,22 @@ global_asm!(
 );
 ```
 
-### `percore::percore_local_offset` implementation
+### `PercoreLocalOffsetImpl` implementation
 
 This implementation returns the offset from `TPIDR_EL1`, the EL1 Software Thread ID Register.
 
 ```rust
+use percore::derive::PercoreLocalOffset;
+
 #[percore::percore_local_offset]
-pub fn percore_local_offset_hook() -> usize {
-    read_tpidr_el1()
+struct PercoreLocalOffsetImpl;
+
+// Safety: Each core initializes TPIDR_EL1 with the offset of its valid percore area before
+// accessing any percore variable.
+unsafe impl PercoreLocalOffset for PercoreLocalOffsetImpl {
+    fn percore_local_offset() -> usize {
+        read_tpidr_el1()
+    }
 }
 ```
 
@@ -165,10 +176,17 @@ sized area for every secondary core in `.percore_secondary`.
 All cores will have their own instance of `VARIABLE` that is initialized to 1.
 
 ```rust
-#[percore::percore]
-static VARIABLE: u64 = 1;
+pub use percore::exception_free;
 
-assert_eq!(1, *VARIABLE.get());
+#[percore::percore]
+static VARIABLE: ExceptionLock<RefCell<u64>> = ExceptionLock::new(RefCell::new(1));
+
+exception_free(|token| {
+    assert_eq!(1, *VARIABLE.get().borrow(token));
+
+    *VARIABLE.get().borrow_mut(token) = 2;
+    assert_eq!(2, *VARIABLE.get().borrow(token));
+});
 ```
 
 ### Accessing from assembly

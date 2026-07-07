@@ -19,7 +19,8 @@ use core::arch::naked_asm;
 #[unsafe(naked)]
 pub extern "C" fn percore_copy_secondary_data() {
     naked_asm!(
-        "adrp	x0, {PERCORE_START}
+        "bti	c
+        adrp	x0, {PERCORE_START}
         add	x0, x0, :lo12:{PERCORE_START}
         adrp	x1, {PERCORE_END}
         add	x1, x1, :lo12:{PERCORE_END}
@@ -81,7 +82,8 @@ pub extern "C" fn percore_copy_secondary_data() {
 #[unsafe(naked)]
 pub extern "C" fn percore_calculate_local_offset(core_index: usize) -> usize {
     naked_asm!(
-        "adrp	x1, {PERCORE_START}
+        "bti	c
+        adrp	x1, {PERCORE_START}
         add	x1, x1, :lo12:{PERCORE_START}
         adrp	x2, {PERCORE_END}
         add	x2, x2, :lo12:{PERCORE_END}

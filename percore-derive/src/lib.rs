@@ -4,13 +4,14 @@
 
 use proc_macro::TokenStream;
 use quote::{format_ident, quote};
-use syn::{ItemFn, ItemStatic, parse_macro_input};
+use syn::{ItemStatic, ItemStruct, parse_macro_input};
 
 /// Marks the variable as percore, creating an instance for each core.
 ///
-/// * Defines the variable in the percore section
-/// * Creates a wrapper type that provides the get() function.
-/// * Defines an instance of the wrapper.
+/// * Defines the variable called `PERCORE_BASE_[variable name]` in the percore section. This can
+///   be used for retrieving the base address (the address without the core's local offset) for
+///   accessing the variable from assembly.
+/// * Defines a `PerCoreWrapper` with the original variable name.
 #[proc_macro_attribute]
 pub fn percore(_attr: TokenStream, item: TokenStream) -> TokenStream {
     let variable = parse_macro_input!(item as ItemStatic);
@@ -21,49 +22,42 @@ pub fn percore(_attr: TokenStream, item: TokenStream) -> TokenStream {
     let ty = &variable.ty;
     let expr = &variable.expr;
 
-    let percore_name = &format_ident!("PERCORE_BASE_{name}");
-    let wrapper_ty = &format_ident!("PERCORE_WRAPPER_{name}");
+    let percore_base_name = &format_ident!("PERCORE_BASE_{name}");
 
     quote! {
         #[cfg_attr(target_os = "none", unsafe(link_section = ".percore"))]
         #(#attrs)*
-        #vis static mut #percore_name: #ty = #expr;
-
-        #[doc = concat!("Per-core wrapper for [`", stringify!(#name), "`]")]
-        #vis struct #wrapper_ty;
-
-        impl #wrapper_ty {
-            #[doc = "Returns a shared reference to the value of the current CPU."]
-            #[inline(always)]
-            pub fn get(&self) -> &#ty {
-                let offset = unsafe{ percore::derive::percore_local_offset() };
-                unsafe { core::ptr::NonNull::from_ref(&#percore_name).byte_add(offset).as_ref() }
-            }
-        }
+        #vis static mut #percore_base_name: #ty = #expr;
 
         #(#attrs)*
-        #vis static #name: #wrapper_ty = #wrapper_ty;
+        #[doc = concat!("Per-core wrapper for [`", stringify!(#name), "`]")]
+        #vis static #name: percore::derive::PerCoreWrapper<#ty> =
+            percore::derive::PerCoreWrapper::new(unsafe{ &#percore_base_name });
     }
     .into()
 }
 
-/// Marks the function that returns the offset of the local cores percore area in bytes from the
-/// beginning of the percore section.
-/// It creates a `percore_local_offset` wrapper function that is the interface towards
-/// `percore::derive`.
+/// Marks the type that implements `percore::derive::PercoreLocalOffset`.
+///
+/// This creates the `percore_local_offset` function used internally by `percore::derive`.
 #[proc_macro_attribute]
 pub fn percore_local_offset(_attr: TokenStream, item: TokenStream) -> TokenStream {
-    let func = parse_macro_input!(item as ItemFn);
-    let ident = &func.sig.ident;
+    let variable = parse_macro_input!(item as ItemStruct);
+    let ident = &variable.ident;
 
     quote! {
-        #func
+        #variable
 
-        #[doc = "percore_local_offset wrapper function."]
-        #[unsafe(no_mangle)]
-        #[inline(always)]
-        pub extern "Rust" fn percore_local_offset() -> usize {
-            #ident()
+        #[doc(hidden)]
+        mod __percore {
+            use super::*;
+
+            #[doc = "percore_local_offset wrapper function."]
+            #[unsafe(no_mangle)]
+            #[inline(always)]
+            fn percore_local_offset() -> usize {
+                <#ident as percore::derive::PercoreLocalOffset>::percore_local_offset()
+            }
         }
     }
     .into()
