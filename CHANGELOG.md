@@ -1,5 +1,11 @@
 # Changelog
 
+## Unreleased
+
+### New features
+
+- Added `percore-derive` and `derive` feature.
+
 ## 0.2.4
 
 ### New features
