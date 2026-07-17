@@ -14,7 +14,7 @@ so that it can only be accessed while exceptions are masked. These may be combin
 [`spin`](https://crates.io/crates/spin) crate) to avoid deadlocks when accessing global mutable
 state from exception handlers.
 
-# Example
+## Example
 
 ```rust
 use core::cell::RefCell;
@@ -50,6 +50,8 @@ fn main() {
     });
 }
 ```
+
+A more complete example is provided in the [examples/aarch64_qemu](examples/aarch64_qemu/) directory.
 
 This is not an officially supported Google product.
 
