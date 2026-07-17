@@ -33,9 +33,16 @@ jobs:
         run: cargo build --target=x86_64-unknown-linux-gnu
       - name: Run tests
         run: cargo test --target=x86_64-unknown-linux-gnu
+      - name: Build examples
+        run: cargo build -p aarch64-qemu
       - name: Run clippy
         uses: actions-rs/clippy-check@v1
         with:
+          token: ${{ secrets.GITHUB_TOKEN }}
+      - name: Run clippy on examples
+        uses: actions-rs/clippy-check@v1
+        with:
+          args: -p aarch64-qemu
           token: ${{ secrets.GITHUB_TOKEN }}
 
   format:
