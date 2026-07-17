@@ -7,14 +7,19 @@
 use aarch64_paging::{
     descriptor::El1Attributes,
     mair::{Mair, MairAttribute, NormalMemory},
+    paging::PAGE_SIZE,
 };
 use aarch64_rt::{
     ExceptionHandlers, InitialPagetable, Stack, exception_handlers, initial_pagetable,
 };
 use arm_pl011_uart::{PL011Registers, Uart, UniqueMmioPointer};
+use buddy_system_allocator::LockedHeap;
 use core::{fmt::Write, panic::PanicInfo, ptr::NonNull};
 use smccc::{Hvc, psci::system_off};
-use spin::{LazyLock, mutex::SpinMutex};
+use spin::{
+    LazyLock,
+    mutex::{SpinMutex, SpinMutexGuard},
+};
 
 /// Base address of the first PL011 UART.
 const PL011_BASE_ADDRESS: *mut PL011Registers = 0x900_0000 as _;
@@ -72,6 +77,25 @@ exception_handlers!(Exceptions);
 struct Exceptions;
 
 impl ExceptionHandlers for Exceptions {}
+
+const HEAP_SIZE: usize = 40 * PAGE_SIZE;
+static HEAP: SpinMutex<[u8; HEAP_SIZE]> = SpinMutex::new([0; HEAP_SIZE]);
+
+#[global_allocator]
+static HEAP_ALLOCATOR: LockedHeap<32> = LockedHeap::new();
+
+/// Adds the memory reserved for the heap to the heap allocator.
+#[allow(unused)]
+pub fn init_heap() {
+    let range = SpinMutexGuard::leak(HEAP.try_lock().unwrap());
+    // SAFETY: The range we pass is valid because it comes from a mutable static reference, which it
+    // effectively takes ownership of.
+    unsafe {
+        HEAP_ALLOCATOR
+            .lock()
+            .init(range.as_mut_ptr() as usize, range.len());
+    }
+}
 
 // SAFETY: The PL011 base address is mapped by the initial identity mapping, and this is the
 // only place we create something referring to it.

@@ -20,9 +20,10 @@ dependencies = [
  "aarch64-rt",
  "arm-pl011-uart",
  "arm-sysregs",
+ "buddy_system_allocator",
  "percore",
  "smccc",
- "spin",
+ "spin 0.12.2",
 ]
 
 [[package]]
@@ -64,6 +65,15 @@ name = "bitflags"
 version = "2.13.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "b588b76d00fde79687d7646a9b5bdf3cc0f655e0bbd080335a95d7e96f3587da"
+
+[[package]]
+name = "buddy_system_allocator"
+version = "0.13.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "c1af5a01adeeade54c9f5060300227a8ee64c05b6376f28e9b8ee3b72dd2056f"
+dependencies = [
+ "spin 0.10.1",
+]
 
 [[package]]
 name = "embedded-hal"
@@ -124,7 +134,7 @@ checksum = "57c0d7b74b563b49d38dae00a0c37d4d6de9b432382b2892f0574ddcae73fd0a"
 name = "percore"
 version = "0.2.4"
 dependencies = [
- "spin",
+ "spin 0.12.2",
  "zerocopy",
 ]
 
@@ -169,6 +179,12 @@ checksum = "597fda855abe96a6a39b2beeca3ee15de3a73c8ed3ff3432778fd2f1db400fcd"
 dependencies = [
  "thiserror",
 ]
+
+[[package]]
+name = "spin"
+version = "0.10.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "023a211cb3138dbc438680b32560ad89f699977624c9f8dbb95a47d5b4c07dd3"
 
 [[package]]
 name = "spin"
