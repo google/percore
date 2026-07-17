@@ -51,7 +51,8 @@ fn main() {
 }
 ```
 
-A more complete example is provided in the [examples/aarch64_qemu](examples/aarch64_qemu/) directory.
+Some more complete examples are provided in the [examples/aarch64_qemu](examples/aarch64_qemu/)
+directory.
 
 This is not an officially supported Google product.
 
