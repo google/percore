@@ -4,15 +4,15 @@
 
 .PHONY: build
 
-all: target/static_array.bin
+all: ../../target/static_array.bin
 
 build:
-	cargo build
+	cargo build --target aarch64-unknown-none
 
-target/static_array.bin: build
-	cargo objcopy --bin static_array -- -O binary $@
+../../target/static_array.bin: build
+	cargo objcopy --target aarch64-unknown-none --bin static_array -- -O binary $@
 
-qemu_static_array: target/static_array.bin
+qemu_static_array: ../../target/static_array.bin
 	qemu-system-aarch64 \
 		-machine virt \
 		-cpu max \
