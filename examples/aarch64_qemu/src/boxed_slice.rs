@@ -48,8 +48,9 @@ unsafe impl Cores for CoresImpl {
         assert_eq!(mpidr_el1.aff2(), 0);
         assert_eq!(mpidr_el1.aff1(), 0);
         let aff0 = mpidr_el1.aff0();
-        assert!(aff0 < 2);
-        aff0.into()
+        let index = aff0.into();
+        assert!(index < CORE_COUNT);
+        index
     }
 }
 
@@ -57,6 +58,7 @@ unsafe impl Cores for CoresImpl {
 static STATE: Once<PerCore<Box<[ExceptionLock<RefCell<u32>>]>, CoresImpl>> = Once::new();
 
 entry!(main);
+/// Entry point for primary core.
 fn main(arg0: u64, arg1: u64, arg2: u64, arg3: u64) -> ! {
     writeln!(
         UART.lock(),
@@ -104,6 +106,7 @@ fn main(arg0: u64, arg1: u64, arg2: u64, arg3: u64) -> ! {
     panic!("system_off returned");
 }
 
+/// Entry point for secondary core.
 fn secondary_main() {
     // Access the state for the secondary core.
     exception_free(|token| {
