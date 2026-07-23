@@ -23,7 +23,7 @@ aarch64-rt = "0.4.3"
 aarch64-paging = { version = "0.12.1", default-features = false }
 arm-pl011-uart = "0.5.0"
 smccc = "0.2.3"
-percore = { path = "../.." }
+percore = { path = "../..", features = ["derive"] }
 
 [[bin]]
 name = "boxed_slice"
@@ -32,3 +32,7 @@ path = "src/boxed_slice.rs"
 [[bin]]
 name = "static_array"
 path = "src/static_array.rs"
+
+[[bin]]
+name = "macro"
+path = "src/macro.rs"
