@@ -75,7 +75,7 @@ pub use self::exceptions::exception_free;
 pub use self::{exceptions::ExceptionFree, lock::ExceptionLock};
 
 #[cfg(feature = "derive")]
-pub use percore_derive::{percore, percore_local_offset};
+pub use percore_derive::percore;
 
 use core::marker::PhantomData;
 

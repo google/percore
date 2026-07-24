@@ -138,9 +138,9 @@ global_asm!(
 This implementation returns the offset from `TPIDR_EL1`, the EL1 Software Thread ID Register.
 
 ```rust
-use percore::derive::PercoreLocalOffset;
+use percore::{derive::PercoreLocalOffset, percore_local_offset};
 
-#[percore::percore_local_offset]
+percore_local_offset!(PercoreLocalOffsetImpl);
 struct PercoreLocalOffsetImpl;
 
 // Safety: Each core initializes TPIDR_EL1 with the offset of its valid percore area before

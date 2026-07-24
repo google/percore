@@ -54,7 +54,7 @@ unsafe impl Cores for CoresImpl {
     }
 }
 
-#[percore_local_offset]
+percore_local_offset!(PercoreLocalOffsetImpl);
 struct PercoreLocalOffsetImpl;
 
 // SAFETY: Each core initialises TPIDR_EL1 with the offset of its percore area before any code that

@@ -105,6 +105,35 @@ impl<T> LinkedPerCore<T> {
 // and exception context.
 unsafe impl<T: Send> Sync for LinkedPerCore<ExceptionLock<T>> {}
 
+/// Marks the type that implements [`PercoreLocalOffset`].
+///
+/// This creates the `percore_local_offset` function used internally by `percore::derive`.
+///
+/// # Example
+///
+/// ```
+/// use percore::{derive::PercoreLocalOffset, percore_local_offset};
+///
+/// percore_local_offset!(LocalOffsetImpl);
+/// struct LocalOffsetImpl;
+///
+/// unsafe impl PercoreLocalOffset for LocalOffsetImpl {
+///     fn percore_local_offset() -> isize {
+///         todo!("Return the appropriate offset for the current core")
+///     }
+/// }
+/// ```
+#[macro_export]
+macro_rules! percore_local_offset {
+    ($t:ident) => {
+        #[doc(hidden)]
+        #[unsafe(export_name = "percore_local_offset")]
+        fn __percore_local_offset() -> isize {
+            <$t as $crate::derive::PercoreLocalOffset>::percore_local_offset()
+        }
+    };
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -116,7 +145,7 @@ mod tests {
     static VALUE: ExceptionLock<RefCell<u64>> =
         ExceptionLock::new(RefCell::new(0xabcd_ef01_2345_6789));
 
-    #[percore::percore_local_offset]
+    percore_local_offset!(PercoreLocalOffsetImpl);
     struct PercoreLocalOffsetImpl;
 
     // Safety: Tests use the initialized primary-core value at offset zero.
