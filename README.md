@@ -167,6 +167,11 @@ sized area for every secondary core in `.percore_secondary`.
     __PERCORE_END__ = .;
 } >image
 
+ASSERT(
+    ALIGNOF(.percore) <= CACHE_LINE_SIZE,
+    ".percore contains an object aligned to a larger boundary than the section's alignment."
+)
+
 .percore_secondary (NOLOAD) : ALIGN(CACHE_LINE_SIZE) {
     __PERCORE_SECONDARY_START__ = .;
     . += (__PERCORE_END__ - __PERCORE_START__) * (CORE_COUNT - 1);

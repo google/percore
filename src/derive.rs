@@ -21,6 +21,11 @@
 //!     . = ALIGN(CACHE_LINE_SIZE);
 //!     __PERCORE_END__ = .;
 //! } >image
+//!
+//! ASSERT(
+//!     ALIGNOF(.percore) <= CACHE_LINE_SIZE,
+//!     ".percore contains an object aligned to a larger boundary than the section's alignment."
+//! )
 //! ```
 //!
 //! # Initialisation
@@ -44,6 +49,9 @@
 //!    this case there is no distinction between primary and secondary cores, and the original
 //!    `.percore` section must never be modified (or at least not until all cores have started and
 //!    initialised their copies).
+//!
+//! In any case, you must ensure that the alignmeant of each CPU's percore area is greater than or
+//! equal to to the maximum alignment of any percore variable.
 //!
 //! # Usage
 //!
@@ -176,8 +184,13 @@ impl<T> LinkedPerCore<T> {
         // Safety: PercoreLocalOffset guarantees a valid offset.
         let percore_ptr = unsafe { NonNull::from_ref(&self.0).byte_offset(percore_local_offset()) };
 
+        debug_assert!(percore_ptr.is_aligned());
+
         // Safety:
-        // * Alignment: TODO: we need something like const{assert!(core::mem::align_of::<T>() <= CACHE_WRITEBACK_SIZE)}
+        // * The percore region must be aligned to the maximum alignment of any percore variable,
+        //   and `&self.0` must be aligned as it comes from a reference, so adding the offset to it
+        //   must still be properly aligned. (In debug builds we also double-check with the
+        //   debug_assert above.)
         // * The pointer is non-null because it is constructed from NonNull and the offset produces
         //   a valid address.
         // * The PercoreLocalOffset implementation promises that the calculated pointer points into

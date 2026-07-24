@@ -21,6 +21,11 @@ SECTIONS
 		__PERCORE_END__ = .;
 	} >image
 
+	ASSERT(
+		ALIGNOF(.percore) <= 16,
+		".percore contains an object aligned to a larger boundary than the sections alignment"
+	)
+
 	.percore_secondary (NOLOAD) : ALIGN(16) {
 		__PERCORE_SECONDARY_START__ = .;
 		. += (__PERCORE_END__ - __PERCORE_START__) * (CORE_COUNT - 1);
