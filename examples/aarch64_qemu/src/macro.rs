@@ -73,6 +73,8 @@ unsafe impl PercoreLocalOffset for PercoreLocalOffsetImpl {
 #[percore]
 static STATE: ExceptionLock<RefCell<u32>> = ExceptionLock::new(RefCell::new(42));
 
+static PERCORE_INITIALISED: AtomicBool = AtomicBool::new(false);
+
 entry!(main);
 /// Entry point for primary core.
 fn main(arg0: u64, arg1: u64, arg2: u64, arg3: u64) -> ! {
@@ -91,6 +93,7 @@ fn main(arg0: u64, arg1: u64, arg2: u64, arg3: u64) -> ! {
         // Initialise percore variables for secondary cores.
         percore_copy_secondary_data();
     }
+    PERCORE_INITIALISED.store(true, Ordering::Release);
 
     // Initialise TPIDR_EL1 for the primary core.
     set_local_offset();
@@ -128,6 +131,11 @@ fn main(arg0: u64, arg1: u64, arg2: u64, arg3: u64) -> ! {
 /// Entry point for secondary core.
 fn secondary_main() {
     set_local_offset();
+
+    // Ensure that the percore initialisation happens-before we try to access any percore variables.
+    while !PERCORE_INITIALISED.load(Ordering::Acquire) {
+        spin_loop();
+    }
 
     // Access the state for the secondary core.
     exception_free(|token| {
