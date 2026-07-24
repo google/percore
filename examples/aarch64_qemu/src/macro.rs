@@ -22,7 +22,9 @@ use core::{
 use percore::{
     Cores, ExceptionLock,
     derive::{
-        PercoreLocalOffset, percore, percore_calculate_local_offset, percore_copy_secondary_data,
+        PercoreLocalOffset,
+        aarch64::{percore_calculate_local_offset, percore_copy_secondary_data},
+        percore,
     },
     exception_free, percore_local_offset,
 };

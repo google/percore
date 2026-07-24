@@ -2,10 +2,16 @@
 // This project is dual-licensed under Apache 2.0 and MIT terms.
 // See LICENSE-APACHE and LICENSE-MIT for details.
 
-use super::{
-    __PERCORE_END__, __PERCORE_SECONDARY_END__, __PERCORE_SECONDARY_START__, __PERCORE_START__,
-};
+use super::{__PERCORE_END__, __PERCORE_START__};
 use core::arch::naked_asm;
+
+#[allow(improper_ctypes)]
+unsafe extern "Rust" {
+    /// Symbol marking the start of the `.percore_secondary` section.
+    pub safe static __PERCORE_SECONDARY_START__: ();
+    /// Symbol marking the end of the `.percore_secondary` section.
+    pub safe static __PERCORE_SECONDARY_END__: ();
+}
 
 /// Duplicates the contents of the initialised percore section into the secondary cores' percore
 /// area. The function is safe to be called from assembly without a stack present. It clobbers

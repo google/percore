@@ -13,26 +13,61 @@
 //! areas and `percore_calculate_local_offset` calculates an area's offset from a CPU linear index.
 
 #[cfg(all(target_arch = "aarch64", target_os = "none"))]
-mod aarch64;
-
-#[cfg(all(target_arch = "aarch64", target_os = "none"))]
-pub use aarch64::{percore_calculate_local_offset, percore_copy_secondary_data};
+pub mod aarch64;
 
 use crate::lock::ExceptionLock;
 use core::ptr::NonNull;
 pub use percore_derive::percore;
 
-#[cfg(all(target_arch = "aarch64", target_os = "none"))]
 #[allow(improper_ctypes)]
 unsafe extern "Rust" {
-    /// Symbol marking the start of the percore section.
-    static __PERCORE_START__: ();
-    /// Symbol marking the end of the percore section.
-    static __PERCORE_END__: ();
-    /// Symbol marking the start of the secondary cores' percore section.
-    static __PERCORE_SECONDARY_START__: ();
-    /// Symbol marking the end of the secondary cores' percore section.
-    static __PERCORE_SECONDARY_END__: ();
+    /// Symbol marking the start of the `.percore` section.
+    pub safe static __PERCORE_START__: ();
+    /// Symbol marking the end of the `.percore` section.
+    pub safe static __PERCORE_END__: ();
+}
+
+/// Returns the size in bytes of a single core's `.percore` section.
+pub fn percore_size() -> usize {
+    &raw const __PERCORE_END__ as usize - &raw const __PERCORE_START__ as usize
+}
+
+/// Duplicates the contents of the initialised percore section into the secondary cores' percore
+/// area.
+///
+/// The function calculates the size of the `.percore` section as the difference between the
+/// `__PERCORE_START__` and `__PERCORE_END__` symbols. Then it copies this memory area into the
+/// given `secondary_percore_area` as many times as it fits.
+///
+/// Panics if the length of `secondary_percore_area` isn't a multiple of the size of the `.percore`
+/// section.
+///
+/// # Safety
+///
+/// This must only be called before any core accesses any percore variable.
+///
+/// `secondary_percore_area` must be valid for writes, and must not overlap with the `.percore
+/// section.
+///
+/// You must ensure that this initialisation happens-before any percore variables are accessed
+/// (according to Rust's memory model). This could for example be achieved by writing to an
+/// AtomicBool with release semantics and having other cores wait until they see the written value
+/// with acquire semantics.
+pub unsafe fn percore_copy_secondary_data(secondary_percore_area: *mut [u8]) {
+    let percore_start = (&raw const __PERCORE_START__).cast::<u8>();
+    let percore_size = percore_size();
+
+    assert!(secondary_percore_area.len().is_multiple_of(percore_size));
+    let copies = secondary_percore_area.len() / percore_size;
+
+    for i in 0..copies {
+        let dest = (secondary_percore_area as *mut u8).wrapping_byte_add(i * percore_size);
+        // SAFETY: The caller promises that `secondary_percore_area` is valid to write and doesn't
+        // overlap with the `.percore` section.
+        unsafe {
+            percore_start.copy_to_nonoverlapping(dest, percore_size);
+        }
+    }
 }
 
 /// Provides the offset of the local core's percore area.
