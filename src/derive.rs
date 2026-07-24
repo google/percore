@@ -9,8 +9,61 @@
 //! project must initialize each CPU's percore area and provide its offset by implementing
 //! `PercoreLocalOffset` on a type marked with `percore_local_offset`.
 //!
-//! On AArch64 bare-metal targets, `percore_copy_secondary_data` initializes the secondary percore
-//! areas and `percore_calculate_local_offset` calculates an area's offset from a CPU linear index.
+//! # Linker script
+//!
+//! You must include the `.percore` section in your linker script, with `__PERCORE_START__` and
+//! `__PERCORE_END__` symbols to mark its boundaries. E.g.:
+//!
+//! ```ld
+//! .percore : ALIGN(CACHE_LINE_SIZE) {
+//!     __PERCORE_START__ = .;
+//!     *(SORT_BY_ALIGNMENT(.percore .percore.*))
+//!     . = ALIGN(CACHE_LINE_SIZE);
+//!     __PERCORE_END__ = .;
+//! } >image
+//! ```
+//!
+//! # Initialisation
+//!
+//! Three possible ways to allocate and initialise each CPU's percore area are:
+//!
+//! 1. If you know the number of cores at build time, allocate a `.percore_secondary` section for it
+//!    in your linker script, and provide the `__PERCORE_SECONDARY_START__` and
+//!    `__PERCORE_SECONDARY_END__` symbols. Copy the appropriate number of copies of the `.percore`
+//!    section to this section in assembly code before any Rust code runs. On AArch64 bare-metal
+//!    targets [`aarch64::percore_copy_secondary_data`] is provided to implement this, and
+//!    [`aarch64::percore_calculate_local_offset`] to calculate the area's offset from a CPU linear
+//!    index. This must either be done before caches are enabled or with appropriate cache
+//!    maintenance operations to ensure that it is visible to all cores.
+//! 2. In your Rust entry point before any access to percore variables, copy the appropriate number
+//!    of copies of the `.percore` section to an appropriately sized area of memory.
+//!    [`percore_copy_secondary_data`] is provided to implement this. In this case you must use Rust
+//!    synchronisation primitives (e.g. an AtomicBool) to ensure that this happens-before any access
+//!    to percore variables.
+//! 3. Have each core initialise its own copy of the `.percore` section the first time it starts. In
+//!    this case there is no distinction between primary and secondary cores, and the original
+//!    `.percore` section must never be modified (or at least not until all cores have started and
+//!    initialised their copies).
+//!
+//! # Usage
+//!
+//! All cores will have their own instance of `VARIABLE` which is initialized to 1.
+//!
+//! ```
+//! # fn exception_free<T>(f: impl FnOnce(percore::ExceptionFree<'_>) -> T) {}
+//! use core::cell::RefCell;
+//! use percore::{ExceptionLock, derive::percore};
+//!
+//! #[percore]
+//! static VARIABLE: ExceptionLock<RefCell<u64>> = ExceptionLock::new(RefCell::new(1));
+//!
+//! exception_free(|token| {
+//!     assert_eq!(1, *VARIABLE.get().borrow_mut(token));
+//!
+//!     *VARIABLE.get().borrow_mut(token) = 2;
+//!     assert_eq!(2, *VARIABLE.get().borrow_mut(token));
+//! });
+//! ```
 
 #[cfg(all(target_arch = "aarch64", target_os = "none"))]
 pub mod aarch64;
@@ -72,8 +125,8 @@ pub unsafe fn percore_copy_secondary_data(secondary_percore_area: *mut [u8]) {
 
 /// Provides the offset of the local core's percore area.
 ///
-/// The consuming project must implement this trait for a type and mark that type with
-/// `percore_local_offset`.
+/// The consuming project must implement this trait for a type and mark that type with the
+/// [`percore_local_offset!`](crate::percore_local_offset) macro.
 ///
 /// # Safety
 ///
@@ -93,17 +146,18 @@ unsafe extern "Rust" {
     pub safe fn percore_local_offset() -> isize;
 }
 
-/// A value stored in a linker section containing one copy for each CPU.
+/// A value stored in a linker section containing one copy for each CPU core.
 ///
-/// The primary CPU's value is stored directly in this wrapper. [`get`](Self::get) adds the local
-/// per-core offset to its address to locate the current CPU's copy.
+/// The initial value (which may also be primary core's value) is stored directly in this wrapper.
+/// [`get`](Self::get) adds the local per-core offset to its address to locate the current core's
+/// copy.
 ///
 /// This should generally not be constructed directly, but through the [`percore`] macro.
 #[repr(transparent)]
 pub struct LinkedPerCore<T>(T);
 
 impl<T> LinkedPerCore<T> {
-    /// Creates a new instance containing the primary CPU's value.
+    /// Creates a new instance containing the primary core's value.
     ///
     /// This should generally not be called directly, but through the [`percore`] macro.
     ///
@@ -116,7 +170,7 @@ impl<T> LinkedPerCore<T> {
         Self(value)
     }
 
-    /// Returns a shared reference to the value of the current CPU.
+    /// Returns a shared reference to the value for the current CPU core.
     #[inline(always)]
     pub fn get(&self) -> &T {
         // Safety: PercoreLocalOffset guarantees a valid offset.

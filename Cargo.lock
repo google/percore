@@ -143,6 +143,7 @@ dependencies = [
 name = "percore-derive"
 version = "0.2.4"
 dependencies = [
+ "percore",
  "quote",
  "syn",
 ]

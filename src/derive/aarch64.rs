@@ -2,6 +2,24 @@
 // This project is dual-licensed under Apache 2.0 and MIT terms.
 // See LICENSE-APACHE and LICENSE-MIT for details.
 
+//! Assembly implementations of percore initialisation helper functions for AArch64 bare-metal
+//! targets where the number of cores is known at build time.
+//!
+//! These assume that your linker script has a `.percore_secondary` section located immediately
+//! after the `.percore` section, with `__PERCORE_SECONDARY_START__` and `__PERCORE_SECONDARY_END__`
+//! symbols marking its start and end. e.g.
+//!
+//! ```ld
+//! .percore_secondary (NOLOAD) : ALIGN(CACHE_LINE_SIZE) {
+//!     __PERCORE_SECONDARY_START__ = .;
+//!     . += (__PERCORE_END__ - __PERCORE_START__) * (CORE_COUNT - 1);
+//!     __PERCORE_SECONDARY_END__ = .;
+//! } >image
+//! ```
+//!
+//! Note that the `.percore_secondary` section is only used for secondary cores; the `.percore`
+//! section itself is used for the primary core's copy of the variables in this case.
+
 use super::{__PERCORE_END__, __PERCORE_START__};
 use core::arch::naked_asm;
 
@@ -17,15 +35,19 @@ unsafe extern "Rust" {
 /// area. The function is safe to be called from assembly without a stack present. It clobbers
 /// registers X0-X6.
 ///
-/// The function calculates the size of the percore section as the difference between the
-/// __PERCORE_START__ and __PERCORE_END__ symbols. Then it copies this memory area between the
-/// __PERCORE_SECONDARY_START__ and __PERCORE_SECONDARY_END__ symbols as many times as it fits.
+/// The function calculates the size of the `.percore` section as the difference between the
+/// `__PERCORE_START__` and `__PERCORE_END__` symbols. Then it copies this memory area between the
+/// `__PERCORE_SECONDARY_START__` and `__PERCORE_SECONDARY_END__` symbols as many times as it fits.
 /// The copy is done in 16 byte chunks, so these symbols must be aligned to at least a 16 byte
 /// boundary. The function is suitable for tiny and small memory models.
 ///
 /// # Safety
 ///
 /// This must only be called before any core accesses any percore variable.
+///
+/// You must ensure that this initialisation happens-before any percore variables are accessed
+/// (according to Rust's memory model). This could be achieved by calling it from assembly before
+/// caches are enabled or any Rust code runs.
 #[unsafe(naked)]
 pub unsafe extern "C" fn percore_copy_secondary_data() {
     naked_asm!(
