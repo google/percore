@@ -12,8 +12,10 @@ categories = ["embedded", "no-std", "rust-patterns"]
 [features]
 alloc = []
 default = ["alloc", "zerocopy"]
+derive = ["percore-derive"]
 
 [dependencies]
+percore-derive = { version = "=0.2.4", path = "percore-derive", optional = true }
 zerocopy = { version = "0.8.50", optional = true, features = ["derive"] }
 
 [dev-dependencies]
@@ -29,4 +31,5 @@ rustdoc-args = ["--cfg", "docsrs"]
 
 [workspace]
 resolver = "3"
-members = ["examples/aarch64_qemu"]
+members = ["percore-derive", "examples/aarch64_qemu"]
+default-members = [".", "percore-derive"]

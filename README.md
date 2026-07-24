@@ -62,6 +62,160 @@ Currently only aarch32 and aarch64 are fully supported. The crate will build for
 architectures, but you'll need to provide your own implementation of the `exception_free` function.
 Patches are welcome to add support for other architectures.
 
+# Derive
+
+The `derive` feature enables the use of the `#[percore::percore]` attribute, which replaces a static
+with a `LinkedPerCore` of the same name in the `.percore` linker section. The wrapper stores the
+primary core's value and accesses the corresponding copy for the current core. This is an
+alternative to declaring per-core variables with `PerCore`.
+
+By default, the primary core is assumed to have index 0, with the secondary cores following it
+sequentially. Each core has its own per-core area, and these areas are laid out contiguously in
+memory, like an array of sections. Only the primary core's area, represented by the `.percore`
+section is included in the image, and it contains the initial values for per-core variables. The
+corresponding areas for the secondary cores, represented by the `.percore_secondary` section, are
+not included in the image. The provided functions are suitable for tiny and small memory models.
+
+Projects may use a different memory layout, provided that they copy the initial variable values into
+each secondary core's per-core area and implement `percore::derive::PercoreLocalOffset` on a type
+marked with `#[percore::percore_local_offset]` to retrieve the appropriate offset.
+
+Pros:
+* At the declaration of the variable it is not necessary to have a `Cores` implementation.
+* Each core's per-core variables are packed together which results in more efficient cache
+  utilization.
+* Better performance.
+
+Cons:
+* Can only be used for global variables.
+* More complex setup.
+* Currently, this is only implemented for `AArch64` targets.
+
+It requires the following actions from the consuming project:
+
+* Call `percore::derive::percore_copy_secondary_data()` on the primary core at boot time.
+* Calculate the local core offset at boot time on each core using
+  `percore_calculate_local_offset(core_index)`.
+* Store this offset in a project specific way.
+* Implement `percore::derive::PercoreLocalOffset` for a type that retrieves the previously stored
+  offset and mark the type with `#[percore::percore_local_offset]`.
+* Allocate `.percore` and `.percore_secondary` sections in the linker script and mark their
+  boundaries using the `__PERCORE_START__`, `__PERCORE_END__`, `__PERCORE_SECONDARY_START__` and
+  `__PERCORE_SECONDARY_END__` symbols. It is recommended to align these sections to the cache line
+  size but at least to 16 bytes on `AArch64`.
+
+## Example
+
+### Initialization
+
+The primary core initializes the secondary per-core areas. Each secondary core then calculates its
+offset from its linear index and stores it in `TPIDR_EL1` before entering `main`.
+
+```rust
+use core::arch::global_asm;
+
+global_asm!(
+    "init_primary:
+        bl {percore_copy_secondary_data}
+
+    init_secondary:
+        bl calculate_core_index
+        /* X0 now contains the local core's linear index */
+
+        /* Calculate and store local offset */
+        bl {percore_calculate_local_offset}
+        msr tpidr_el1, x0
+
+        b main
+    ",
+    percore_copy_secondary_data = sym percore_copy_secondary_data,
+    percore_calculate_local_offset = sym percore_calculate_local_offset,
+);
+```
+
+### `PercoreLocalOffsetImpl` implementation
+
+This implementation returns the offset from `TPIDR_EL1`, the EL1 Software Thread ID Register.
+
+```rust
+use percore::derive::PercoreLocalOffset;
+
+#[percore::percore_local_offset]
+struct PercoreLocalOffsetImpl;
+
+// Safety: Each core initializes TPIDR_EL1 with the offset of its valid percore area before
+// accessing any percore variable.
+unsafe impl PercoreLocalOffset for PercoreLocalOffsetImpl {
+    fn percore_local_offset() -> usize {
+        read_tpidr_el1().threadid() as _
+    }
+}
+```
+
+### Linker script
+
+The linker script places the primary core's initialized data in `.percore` and reserves an equally
+sized area for every secondary core in `.percore_secondary`.
+
+```
+.percore : ALIGN(CACHE_LINE_SIZE) {
+    __PERCORE_START__ = .;
+    *(.percore .percore.*)
+    . = ALIGN(CACHE_LINE_SIZE);
+    __PERCORE_END__ = .;
+} >image
+
+.percore_secondary (NOLOAD) : ALIGN(CACHE_LINE_SIZE) {
+    __PERCORE_SECONDARY_START__ = .;
+    . += (__PERCORE_END__ - __PERCORE_START__) * (CORE_COUNT - 1);
+    __PERCORE_SECONDARY_END__ = .;
+} >image
+```
+
+### Usage
+
+All cores will have their own instance of `VARIABLE` that is initialized to 1.
+
+```rust
+pub use percore::exception_free;
+
+#[percore::percore]
+static VARIABLE: ExceptionLock<RefCell<u64>> = ExceptionLock::new(RefCell::new(1));
+
+exception_free(|token| {
+    assert_eq!(1, *VARIABLE.get().borrow(token));
+
+    *VARIABLE.get().borrow_mut(token) = 2;
+    assert_eq!(2, *VARIABLE.get().borrow(token));
+});
+```
+
+### Accessing from assembly
+
+Assembly code can access the current core's instance by adding the offset in `TPIDR_EL1` to the
+variable's base address. This example increments the local instance of `VARIABLE`.
+
+```rust
+global_asm!(
+    "increment:
+        /* Retrieve base address of the per-core variable */
+        adrp	x0, {VARIABLE}
+        add	x0, x0, :lo12:{VARIABLE}
+
+        /* Add per-core offset stored in TPIDR_EL1 */
+        mrs	x1, tpidr_el1
+        add	x0, x0, x1
+        /* At this point X0 contains the address to the local core's instance of VARIABLE */
+
+        /* Increment the value by one. */
+        ldr	x1, [x0]
+        add	x1, x1, #1
+        str	x1, [x0]
+        ret",
+    VARIABLE = sym VARIABLE,
+);
+```
+
 ## License
 
 Licensed under either of

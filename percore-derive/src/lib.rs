@@ -1,0 +1,57 @@
+// Copyright 2026 The percore Authors.
+// This project is dual-licensed under Apache 2.0 and MIT terms.
+// See LICENSE-APACHE and LICENSE-MIT for details.
+
+use proc_macro::TokenStream;
+use quote::quote;
+use syn::{ItemStatic, ItemStruct, parse_macro_input};
+
+/// Marks the variable as percore, creating an instance for each core.
+///
+/// This replaces the static with a `percore::derive::LinkedPerCore` of the same name and places it
+/// in the `.percore` linker section. The static's symbol is the base address of the per-core variable
+/// and can be used to access it from assembly.
+#[proc_macro_attribute]
+pub fn percore(_attr: TokenStream, item: TokenStream) -> TokenStream {
+    let static_item = parse_macro_input!(item as ItemStatic);
+
+    let attrs = &static_item.attrs;
+    let vis = &static_item.vis;
+    let name = &static_item.ident;
+    let ty = &static_item.ty;
+    let expr = &static_item.expr;
+
+    quote! {
+        #[cfg_attr(target_os = "none", unsafe(link_section = ".percore"))]
+        #(#attrs)*
+        #vis static #name: percore::derive::LinkedPerCore<#ty> =
+            unsafe { percore::derive::LinkedPerCore::new(#expr) };
+    }
+    .into()
+}
+
+/// Marks the type that implements `percore::derive::PercoreLocalOffset`.
+///
+/// This creates the `percore_local_offset` function used internally by `percore::derive`.
+#[proc_macro_attribute]
+pub fn percore_local_offset(_attr: TokenStream, item: TokenStream) -> TokenStream {
+    let struct_item = parse_macro_input!(item as ItemStruct);
+    let ident = &struct_item.ident;
+
+    quote! {
+        #struct_item
+
+        #[doc(hidden)]
+        mod __percore {
+            use super::*;
+
+            #[doc = "percore_local_offset wrapper function."]
+            #[unsafe(no_mangle)]
+            #[inline(always)]
+            fn percore_local_offset() -> usize {
+                <#ident as percore::derive::PercoreLocalOffset>::percore_local_offset()
+            }
+        }
+    }
+    .into()
+}

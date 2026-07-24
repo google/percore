@@ -65,9 +65,15 @@ mod boxed;
 mod exceptions;
 mod lock;
 
+#[cfg(feature = "derive")]
+pub mod derive;
+
 #[cfg(any(target_arch = "aarch64", target_arch = "arm"))]
 pub use self::exceptions::exception_free;
 pub use self::{exceptions::ExceptionFree, lock::ExceptionLock};
+
+#[cfg(feature = "derive")]
+pub use percore_derive::{percore, percore_local_offset};
 
 use core::marker::PhantomData;
 
