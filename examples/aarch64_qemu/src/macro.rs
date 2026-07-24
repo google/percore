@@ -60,7 +60,7 @@ struct PercoreLocalOffsetImpl;
 // SAFETY: Each core initialises TPIDR_EL1 with the offset of its percore area before any code that
 // accesses percore variables.
 unsafe impl PercoreLocalOffset for PercoreLocalOffsetImpl {
-    fn percore_local_offset() -> usize {
+    fn percore_local_offset() -> isize {
         read_tpidr_el1().threadid() as _
     }
 }

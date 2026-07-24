@@ -45,7 +45,7 @@ unsafe extern "Rust" {
 /// overflow `isize` for any percore variable and core.
 pub unsafe trait PercoreLocalOffset {
     /// Returns the byte offset of the local core's percore area from the `.percore` section.
-    fn percore_local_offset() -> usize;
+    fn percore_local_offset() -> isize;
 }
 
 unsafe extern "Rust" {
@@ -54,7 +54,7 @@ unsafe extern "Rust" {
     ///
     /// The [`PercoreLocalOffset`] safety contract guarantees that the offset is valid for every
     /// per-core variable.
-    pub safe fn percore_local_offset() -> usize;
+    pub safe fn percore_local_offset() -> isize;
 }
 
 /// A value stored in a linker section containing one copy for each CPU.
@@ -86,7 +86,7 @@ impl<T> LinkedPerCore<T> {
     #[inline(always)]
     pub fn get(&self) -> &T {
         // Safety: PercoreLocalOffset guarantees a valid offset.
-        let percore_ptr = unsafe { NonNull::from_ref(&self.0).byte_add(percore_local_offset()) };
+        let percore_ptr = unsafe { NonNull::from_ref(&self.0).byte_offset(percore_local_offset()) };
 
         // Safety:
         // * Alignment: TODO: we need something like const{assert!(core::mem::align_of::<T>() <= CACHE_WRITEBACK_SIZE)}
@@ -121,7 +121,7 @@ mod tests {
 
     // Safety: Tests use the initialized primary-core value at offset zero.
     unsafe impl PercoreLocalOffset for PercoreLocalOffsetImpl {
-        fn percore_local_offset() -> usize {
+        fn percore_local_offset() -> isize {
             0
         }
     }

@@ -80,7 +80,7 @@ pub extern "C" fn percore_copy_secondary_data() {
 /// to be called from assembly without a stack present. It clobbers registers X0-X2 and returns the
 /// offset in X0. The function is suitable for tiny and small memory models.
 #[unsafe(naked)]
-pub extern "C" fn percore_calculate_local_offset(core_index: usize) -> usize {
+pub extern "C" fn percore_calculate_local_offset(core_index: usize) -> isize {
     naked_asm!(
         "bti	c
         adrp	x1, {PERCORE_START}

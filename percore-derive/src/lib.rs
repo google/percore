@@ -48,7 +48,7 @@ pub fn percore_local_offset(_attr: TokenStream, item: TokenStream) -> TokenStrea
             #[doc = "percore_local_offset wrapper function."]
             #[unsafe(no_mangle)]
             #[inline(always)]
-            fn percore_local_offset() -> usize {
+            fn percore_local_offset() -> isize {
                 <#ident as percore::derive::PercoreLocalOffset>::percore_local_offset()
             }
         }
