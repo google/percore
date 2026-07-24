@@ -61,16 +61,23 @@ unsafe extern "Rust" {
 ///
 /// The primary CPU's value is stored directly in this wrapper. [`get`](Self::get) adds the local
 /// per-core offset to its address to locate the current CPU's copy.
+///
+/// This should generally not be constructed directly, but through the [`percore`](crate::percore)
+/// macro.
 #[repr(transparent)]
 pub struct LinkedPerCore<T>(T);
 
 impl<T> LinkedPerCore<T> {
     /// Creates a new instance containing the primary CPU's value.
     ///
+    /// This should generally not be called directly, but through the [`percore`](crate::percore)
+    /// macro.
+    ///
     /// # Safety
     ///
     /// The created variable must be a static placed in the `.percore` section and the project must
-    /// have a valid `PercoreLocalOffset` implementation.
+    /// have a valid `PercoreLocalOffset` implementation. It must only be accessed after
+    /// `percore_copy_secondary_data` has run.
     pub const unsafe fn new(value: T) -> Self {
         Self(value)
     }
