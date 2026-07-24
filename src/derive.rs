@@ -20,6 +20,7 @@ pub use aarch64::{percore_calculate_local_offset, percore_copy_secondary_data};
 
 use crate::lock::ExceptionLock;
 use core::ptr::NonNull;
+pub use percore_derive::percore;
 
 #[cfg(all(target_arch = "aarch64", target_os = "none"))]
 #[allow(improper_ctypes)]
@@ -62,16 +63,14 @@ unsafe extern "Rust" {
 /// The primary CPU's value is stored directly in this wrapper. [`get`](Self::get) adds the local
 /// per-core offset to its address to locate the current CPU's copy.
 ///
-/// This should generally not be constructed directly, but through the [`percore`](crate::percore)
-/// macro.
+/// This should generally not be constructed directly, but through the [`percore`] macro.
 #[repr(transparent)]
 pub struct LinkedPerCore<T>(T);
 
 impl<T> LinkedPerCore<T> {
     /// Creates a new instance containing the primary CPU's value.
     ///
-    /// This should generally not be called directly, but through the [`percore`](crate::percore)
-    /// macro.
+    /// This should generally not be called directly, but through the [`percore`] macro.
     ///
     /// # Safety
     ///
@@ -141,7 +140,7 @@ mod tests {
     use crate::ExceptionFree;
     use core::cell::RefCell;
 
-    #[percore::percore]
+    #[percore]
     static VALUE: ExceptionLock<RefCell<u64>> =
         ExceptionLock::new(RefCell::new(0xabcd_ef01_2345_6789));
 

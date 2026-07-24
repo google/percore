@@ -21,8 +21,10 @@ use core::{
 };
 use percore::{
     Cores, ExceptionLock,
-    derive::{PercoreLocalOffset, percore_calculate_local_offset, percore_copy_secondary_data},
-    exception_free, percore, percore_local_offset,
+    derive::{
+        PercoreLocalOffset, percore, percore_calculate_local_offset, percore_copy_secondary_data,
+    },
+    exception_free, percore_local_offset,
 };
 use smccc::{
     Hvc,
