@@ -143,7 +143,7 @@ unsafe extern "Rust" {
     ///
     /// The [`PercoreLocalOffset`] safety contract guarantees that the offset is valid for every
     /// per-core variable.
-    pub safe fn percore_local_offset() -> isize;
+    safe fn percore_local_offset() -> isize;
 }
 
 /// A value stored in a linker section containing one copy for each CPU core.
