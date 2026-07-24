@@ -64,9 +64,10 @@ Patches are welcome to add support for other architectures.
 
 # Derive
 
-The `derive` feature enables the use of the `#[percore::percore]` attribute which changes global
-variables into per-core variables. This is an orthogonal way of declaring per-core variables to the
-regular `PerCore` based method.
+The `derive` feature enables the use of the `#[percore::percore]` attribute, which replaces a static
+with a `LinkedPerCore` of the same name in the `.percore` linker section. The wrapper stores the
+primary core's value and accesses the corresponding copy for the current core. This is an
+alternative to declaring per-core variables with `PerCore`.
 
 By default, the primary core is assumed to have index 0, with the secondary cores following it
 sequentially. Each core has its own per-core area, and these areas are laid out contiguously in
@@ -146,7 +147,7 @@ struct PercoreLocalOffsetImpl;
 // accessing any percore variable.
 unsafe impl PercoreLocalOffset for PercoreLocalOffsetImpl {
     fn percore_local_offset() -> usize {
-        read_tpidr_el1()
+        read_tpidr_el1().threadid() as _
     }
 }
 ```
@@ -211,7 +212,7 @@ global_asm!(
         add	x1, x1, #1
         str	x1, [x0]
         ret",
-    sym VARIABLE = PERCORE_BASE_VARIABLE,
+    VARIABLE = sym VARIABLE,
 );
 ```
 

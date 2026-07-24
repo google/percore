@@ -2,6 +2,16 @@
 // This project is dual-licensed under Apache 2.0 and MIT terms.
 // See LICENSE-APACHE and LICENSE-MIT for details.
 
+//! Linker section based per-core variables
+//!
+//! The `percore` attribute places a variable's initial value in the `.percore` linker section and
+//! exposes a `LinkedPerCore` wrapper that accesses the copy for the local CPU. The consuming
+//! project must initialize each CPU's percore area and provide its offset by implementing
+//! `PercoreLocalOffset` on a type marked with `percore_local_offset`.
+//!
+//! On AArch64 bare-metal targets, `percore_copy_secondary_data` initializes the secondary percore
+//! areas and `percore_calculate_local_offset` calculates an area's offset from a CPU linear index.
+
 #[cfg(all(target_arch = "aarch64", target_os = "none"))]
 mod aarch64;
 
@@ -31,7 +41,7 @@ unsafe extern "Rust" {
 ///
 /// # Safety
 ///
-/// The offset must point point to a valid and initialized percore memory area and it must not
+/// The offset must point to a valid and initialized percore memory area and it must not
 /// overflow `isize` for any percore variable and core.
 pub unsafe trait PercoreLocalOffset {
     /// Returns the byte offset of the local core's percore area from the `.percore` section.
@@ -47,20 +57,29 @@ unsafe extern "Rust" {
     pub safe fn percore_local_offset() -> usize;
 }
 
-/// Per-core wrapper for `T`.
-pub struct PerCoreWrapper<T>(NonNull<T>);
+/// A value stored in a linker section containing one copy for each CPU.
+///
+/// The primary CPU's value is stored directly in this wrapper. [`get`](Self::get) adds the local
+/// per-core offset to its address to locate the current CPU's copy.
+#[repr(transparent)]
+pub struct LinkedPerCore<T>(T);
 
-impl<T> PerCoreWrapper<T> {
-    /// Creates new instance.
-    pub const fn new(value: &T) -> Self {
-        Self(NonNull::from_ref(value))
+impl<T> LinkedPerCore<T> {
+    /// Creates a new instance containing the primary CPU's value.
+    ///
+    /// # Safety
+    ///
+    /// The created variable must be a static placed in the `.percore` section and the project must
+    /// have a valid `PercoreLocalOffset` implementation.
+    pub const unsafe fn new(value: T) -> Self {
+        Self(value)
     }
 
     /// Returns a shared reference to the value of the current CPU.
     #[inline(always)]
     pub fn get(&self) -> &T {
         // Safety: PercoreLocalOffset guarantees a valid offset.
-        let percore_ptr = unsafe { self.0.byte_add(percore_local_offset()) };
+        let percore_ptr = unsafe { NonNull::from_ref(&self.0).byte_add(percore_local_offset()) };
 
         // Safety:
         // * Alignment: TODO: we need something like const{assert!(core::mem::align_of::<T>() <= CACHE_WRITEBACK_SIZE)}
@@ -68,16 +87,16 @@ impl<T> PerCoreWrapper<T> {
         //   a valid address.
         // * The PercoreLocalOffset implementation promises that the calculated pointer points into
         // * the percore memory area which is initialized and it is dereferenceable for the T type.
-        // * Aliasing is prevented by each core having it's own instance of the variable and by
+        // * Aliasing is prevented by each core having its own instance of the variable and by
         //   requiring `ExceptionLock` for `Sync` implementation.
         unsafe { percore_ptr.as_ref() }
     }
 }
 
-// Safety: `PerCoreWrapper` is safe between different cores, because each core has its own
+// Safety: `LinkedPerCore` is safe between different cores, because each core has its own
 // core-local instance of the variable. `ExceptionLock` also prevents concurrent access from runtime
 // and exception context.
-unsafe impl<T: Send> Sync for PerCoreWrapper<ExceptionLock<T>> {}
+unsafe impl<T: Send> Sync for LinkedPerCore<ExceptionLock<T>> {}
 
 #[cfg(test)]
 mod tests {
