@@ -16,8 +16,12 @@ use core::arch::naked_asm;
 /// __PERCORE_SECONDARY_START__ and __PERCORE_SECONDARY_END__ symbols as many times as it fits.
 /// The copy is done in 16 byte chunks, so these symbols must be aligned to at least a 16 byte
 /// boundary. The function is suitable for tiny and small memory models.
+///
+/// # Safety
+///
+/// This must only be called before any core accesses any percore variable.
 #[unsafe(naked)]
-pub extern "C" fn percore_copy_secondary_data() {
+pub unsafe extern "C" fn percore_copy_secondary_data() {
     naked_asm!(
         "bti	c
         adrp	x0, {PERCORE_START}

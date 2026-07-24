@@ -82,8 +82,11 @@ fn main(arg0: u64, arg1: u64, arg2: u64, arg3: u64) -> ! {
     )
     .unwrap();
 
-    // Initialise percore variables for secondary cores.
-    percore_copy_secondary_data();
+    // SAFETY: No percore variables are accessed before this call.
+    unsafe {
+        // Initialise percore variables for secondary cores.
+        percore_copy_secondary_data();
+    }
 
     // Initialise TPIDR_EL1 for the primary core.
     set_local_offset();
