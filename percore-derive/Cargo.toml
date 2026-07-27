@@ -17,4 +17,4 @@ quote = "1.0.45"
 syn = { version = "3.0.3", features = ["full"] }
 
 [dev-dependencies]
-percore = { version = "=0.2.5", features = ["derive"], path = ".." }
+percore = { features = ["derive"], path = ".." }
