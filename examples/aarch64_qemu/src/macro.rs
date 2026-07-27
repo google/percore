@@ -2,33 +2,33 @@
 // This project is dual-licensed under Apache 2.0 and MIT terms.
 // See LICENSE-APACHE and LICENSE-MIT for details.
 
-//! An example of using a `PerCore` for a static variable on bare-metal aarch64 to provide safe
-//! mutable state for each core. Rather than statically allocating an array of a fixed size, this
-//! example uses a boxed slice, which allows the number of cores to be determined at runtime.
+//! An example of using the `#[percore]` macro for a static variable on bare-metal aarch64 to
+//! provide safe mutable state for each core.
 
 #![no_std]
 #![no_main]
 
-extern crate alloc;
-
 mod common;
 
-use crate::common::{SECONDARY_STACK, UART, init_heap};
+use crate::common::{SECONDARY_STACK, UART};
 use aarch64_rt::{entry, start_core};
-use alloc::boxed::Box;
-use arm_sysregs::read_mpidr_el1;
+use arm_sysregs::{TpidrEl1, read_mpidr_el1, read_tpidr_el1, write_tpidr_el1};
 use core::{
     cell::RefCell,
     fmt::Write,
     hint::spin_loop,
     sync::atomic::{AtomicBool, Ordering},
 };
-use percore::{Cores, ExceptionLock, PerCore, exception_free};
+use percore::{
+    Cores, ExceptionLock,
+    derive::{PercoreLocalOffset, percore_calculate_local_offset, percore_copy_secondary_data},
+    exception_free, percore, percore_local_offset,
+};
 use smccc::{
     Hvc,
     psci::{cpu_off, system_off},
 };
-use spin::{Once, mutex::SpinMutexGuard};
+use spin::mutex::SpinMutexGuard;
 
 /// The number of CPU cores on the system.
 const CORE_COUNT: usize = 2;
@@ -54,8 +54,20 @@ unsafe impl Cores for CoresImpl {
     }
 }
 
+#[percore_local_offset]
+struct PercoreLocalOffsetImpl;
+
+// SAFETY: Each core initialises TPIDR_EL1 with the offset of its percore area before any code that
+// accesses percore variables.
+unsafe impl PercoreLocalOffset for PercoreLocalOffsetImpl {
+    fn percore_local_offset() -> usize {
+        read_tpidr_el1().threadid() as _
+    }
+}
+
 /// Mutable state for each core.
-static STATE: Once<PerCore<Box<[ExceptionLock<RefCell<u32>>]>, CoresImpl>> = Once::new();
+#[percore]
+static STATE: ExceptionLock<RefCell<u32>> = ExceptionLock::new(RefCell::new(42));
 
 entry!(main);
 /// Entry point for primary core.
@@ -70,15 +82,15 @@ fn main(arg0: u64, arg1: u64, arg2: u64, arg3: u64) -> ! {
     )
     .unwrap();
 
-    init_heap();
+    // Initialise percore variables for secondary cores.
+    percore_copy_secondary_data();
 
-    // Initialise the state for the appropriate number of cores. This could be read from the device
-    // tree.
-    STATE.call_once(|| PerCore::new_with_default(CORE_COUNT));
+    // Initialise TPIDR_EL1 for the primary core.
+    set_local_offset();
 
     // Access the state for the primary core.
     exception_free(|token| {
-        let mut state = STATE.get().unwrap().get().borrow_mut(token);
+        let mut state = STATE.get().borrow_mut(token);
         writeln!(UART.lock(), "Core 0: STATE is {}", state).unwrap();
         *state += 2;
         writeln!(UART.lock(), "Core 0: Added 2, STATE is now {}", state).unwrap();
@@ -98,7 +110,7 @@ fn main(arg0: u64, arg1: u64, arg2: u64, arg3: u64) -> ! {
     }
 
     exception_free(|token| {
-        let state = STATE.get().unwrap().get().borrow_mut(token);
+        let state = STATE.get().borrow_mut(token);
         writeln!(UART.lock(), "Core 0: STATE is {}", state).unwrap();
     });
 
@@ -108,16 +120,27 @@ fn main(arg0: u64, arg1: u64, arg2: u64, arg3: u64) -> ! {
 
 /// Entry point for secondary core.
 fn secondary_main() {
+    set_local_offset();
+
     // Access the state for the secondary core.
     exception_free(|token| {
-        let mut state = STATE.get().unwrap().get().borrow_mut(token);
+        let mut state = STATE.get().borrow_mut(token);
         writeln!(UART.lock(), "Core 1: STATE is {}", state).unwrap();
-        *state += 15;
-        writeln!(UART.lock(), "Core 1: Added 15, STATE is now {}", state).unwrap();
+        *state -= 2;
+        writeln!(UART.lock(), "Core 1: Subtracted 2, STATE is now {}", state).unwrap();
     });
 
     SECONDARY_FINISHED.store(true, Ordering::SeqCst);
 
     cpu_off::<Hvc>().unwrap();
     panic!("cpu_off returned");
+}
+
+/// Initialise TPIDR_EL1 for this core.
+fn set_local_offset() {
+    let offset = percore_calculate_local_offset(CoresImpl::core_index());
+    // SAFETY: The value we write to TPIDR_EL1 is the correct percore_local_offset for this core.
+    unsafe {
+        write_tpidr_el1(TpidrEl1::empty().with_threadid(offset as _));
+    }
 }
