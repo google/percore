@@ -4,7 +4,8 @@
 
 ### New features
 
-- Added `percore-derive` and `derive` feature.
+- Added `derive` feature. This provides the `#[percore]` macro for another approach to per-core
+  variables.
 
 ## 0.2.4
 
