@@ -4,13 +4,23 @@
 
 use proc_macro::TokenStream;
 use quote::quote;
-use syn::{ItemStatic, ItemStruct, parse_macro_input};
+use syn::{ItemStatic, parse_macro_input};
 
 /// Marks the variable as percore, creating an instance for each core.
 ///
 /// This replaces the static with a `percore::derive::LinkedPerCore` of the same name and places it
 /// in the `.percore` linker section. The static's symbol is the base address of the per-core variable
 /// and can be used to access it from assembly.
+///
+/// # Example
+///
+/// ```
+/// use percore::{ExceptionLock, derive::percore};
+/// use core::cell::RefCell;
+///
+/// #[percore]
+/// static VARIABLE: ExceptionLock<RefCell<u64>> = ExceptionLock::new(RefCell::new(1));
+/// ```
 #[proc_macro_attribute]
 pub fn percore(_attr: TokenStream, item: TokenStream) -> TokenStream {
     let static_item = parse_macro_input!(item as ItemStatic);
@@ -26,32 +36,6 @@ pub fn percore(_attr: TokenStream, item: TokenStream) -> TokenStream {
         #(#attrs)*
         #vis static #name: percore::derive::LinkedPerCore<#ty> =
             unsafe { percore::derive::LinkedPerCore::new(#expr) };
-    }
-    .into()
-}
-
-/// Marks the type that implements `percore::derive::PercoreLocalOffset`.
-///
-/// This creates the `percore_local_offset` function used internally by `percore::derive`.
-#[proc_macro_attribute]
-pub fn percore_local_offset(_attr: TokenStream, item: TokenStream) -> TokenStream {
-    let struct_item = parse_macro_input!(item as ItemStruct);
-    let ident = &struct_item.ident;
-
-    quote! {
-        #struct_item
-
-        #[doc(hidden)]
-        mod __percore {
-            use super::*;
-
-            #[doc = "percore_local_offset wrapper function."]
-            #[unsafe(no_mangle)]
-            #[inline(always)]
-            fn percore_local_offset() -> usize {
-                <#ident as percore::derive::PercoreLocalOffset>::percore_local_offset()
-            }
-        }
     }
     .into()
 }

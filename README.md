@@ -81,25 +81,27 @@ each secondary core's per-core area and implement `percore::derive::PercoreLocal
 marked with `#[percore::percore_local_offset]` to retrieve the appropriate offset.
 
 Pros:
-* At the declaration of the variable it is not necessary to have a `Cores` implementation.
-* Each core's per-core variables are packed together which results in more efficient cache
+
+- At the declaration of the variable it is not necessary to have a `Cores` implementation.
+- Each core's per-core variables are packed together which results in more efficient cache
   utilization.
-* Better performance.
+- Better performance.
 
 Cons:
-* Can only be used for global variables.
-* More complex setup.
-* Currently, this is only implemented for `AArch64` targets.
+
+- Can only be used for global variables.
+- More complex setup.
+- Currently, this is only implemented for `AArch64` targets.
 
 It requires the following actions from the consuming project:
 
-* Call `percore::derive::percore_copy_secondary_data()` on the primary core at boot time.
-* Calculate the local core offset at boot time on each core using
+- Call `percore::derive::percore_copy_secondary_data()` on the primary core at boot time.
+- Calculate the local core offset at boot time on each core using
   `percore_calculate_local_offset(core_index)`.
-* Store this offset in a project specific way.
-* Implement `percore::derive::PercoreLocalOffset` for a type that retrieves the previously stored
+- Store this offset in a project specific way.
+- Implement `percore::derive::PercoreLocalOffset` for a type that retrieves the previously stored
   offset and mark the type with `#[percore::percore_local_offset]`.
-* Allocate `.percore` and `.percore_secondary` sections in the linker script and mark their
+- Allocate `.percore` and `.percore_secondary` sections in the linker script and mark their
   boundaries using the `__PERCORE_START__`, `__PERCORE_END__`, `__PERCORE_SECONDARY_START__` and
   `__PERCORE_SECONDARY_END__` symbols. It is recommended to align these sections to the cache line
   size but at least to 16 bytes on `AArch64`.
@@ -138,15 +140,15 @@ global_asm!(
 This implementation returns the offset from `TPIDR_EL1`, the EL1 Software Thread ID Register.
 
 ```rust
-use percore::derive::PercoreLocalOffset;
+use percore::{derive::PercoreLocalOffset, percore_local_offset};
 
-#[percore::percore_local_offset]
+percore_local_offset!(PercoreLocalOffsetImpl);
 struct PercoreLocalOffsetImpl;
 
 // Safety: Each core initializes TPIDR_EL1 with the offset of its valid percore area before
 // accessing any percore variable.
 unsafe impl PercoreLocalOffset for PercoreLocalOffsetImpl {
-    fn percore_local_offset() -> usize {
+    fn percore_local_offset() -> isize {
         read_tpidr_el1().threadid() as _
     }
 }
@@ -160,10 +162,15 @@ sized area for every secondary core in `.percore_secondary`.
 ```
 .percore : ALIGN(CACHE_LINE_SIZE) {
     __PERCORE_START__ = .;
-    *(.percore .percore.*)
+    *(SORT_BY_ALIGNMENT(.percore .percore.*))
     . = ALIGN(CACHE_LINE_SIZE);
     __PERCORE_END__ = .;
 } >image
+
+ASSERT(
+    ALIGNOF(.percore) <= CACHE_LINE_SIZE,
+    ".percore contains an object aligned to a larger boundary than the section's alignment."
+)
 
 .percore_secondary (NOLOAD) : ALIGN(CACHE_LINE_SIZE) {
     __PERCORE_SECONDARY_START__ = .;
@@ -174,19 +181,20 @@ sized area for every secondary core in `.percore_secondary`.
 
 ### Usage
 
-All cores will have their own instance of `VARIABLE` that is initialized to 1.
+All cores will have their own instance of `VARIABLE` which is initialized to 1.
 
 ```rust
-pub use percore::exception_free;
+use core::cell::RefCell;
+use percore::{ExceptionLock, exception_free, percore};
 
 #[percore::percore]
 static VARIABLE: ExceptionLock<RefCell<u64>> = ExceptionLock::new(RefCell::new(1));
 
 exception_free(|token| {
-    assert_eq!(1, *VARIABLE.get().borrow(token));
+    assert_eq!(1, *VARIABLE.get().borrow_mut(token));
 
     *VARIABLE.get().borrow_mut(token) = 2;
-    assert_eq!(2, *VARIABLE.get().borrow(token));
+    assert_eq!(2, *VARIABLE.get().borrow_mut(token));
 });
 ```
 

@@ -27,12 +27,20 @@ jobs:
           target: armv7a-none-eabi
       - name: Build
         run: cargo build
+      - name: Build with all features
+        run: cargo build --all-features
       - name: Build for armv7a-none-eabi
         run: cargo build --target=armv7a-none-eabi
+      - name: Build for armv7a-none-eabi with all features
+        run: cargo build --target=armv7a-none-eabi --all-features
       - name: Build for x86_64-unknown-linux-gnu
         run: cargo build --target=x86_64-unknown-linux-gnu
+      - name: Build for x86_64-unknown-linux-gnu with all features
+        run: cargo build --target=x86_64-unknown-linux-gnu --all-features
       - name: Run tests
         run: cargo test --target=x86_64-unknown-linux-gnu
+      - name: Run tests with all features
+        run: cargo test --target=x86_64-unknown-linux-gnu --all-features
       - name: Build examples
         run: cargo build -p aarch64-qemu
       - name: Run clippy
