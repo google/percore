@@ -1,6 +1,6 @@
 [package]
 name = "percore-derive"
-version = "0.2.4"
+version = "0.2.5"
 edition = "2024"
 license = "MIT OR Apache-2.0"
 description = "Proc-macro for adding percore attribute."
@@ -17,4 +17,4 @@ quote = "1.0.45"
 syn = { version = "3.0.3", features = ["full"] }
 
 [dev-dependencies]
-percore = { version = "=0.2.4", features = ["derive"], path = ".." }
+percore = { version = "=0.2.5", features = ["derive"], path = ".." }
