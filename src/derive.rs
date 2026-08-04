@@ -77,7 +77,7 @@
 pub mod aarch64;
 
 use crate::lock::ExceptionLock;
-use core::ptr::NonNull;
+use core::{num::NonZero, ptr::NonNull};
 pub use percore_derive::percore;
 
 #[allow(improper_ctypes)]
@@ -181,8 +181,20 @@ impl<T> LinkedPerCore<T> {
     /// Returns a shared reference to the value for the current CPU core.
     #[inline(always)]
     pub fn get(&self) -> &T {
-        // SAFETY: PercoreLocalOffset guarantees a valid offset.
-        let percore_ptr = unsafe { NonNull::from_ref(&self.0).byte_offset(percore_local_offset()) };
+        // We need to construct a new pointer with exposed provenance rather than just using
+        // `byte_offset` on the pointer to `self.0` because the per-core copy is not part of the
+        // same allocation.
+        let percore_ptr = NonNull::with_exposed_provenance(
+            NonZero::new(
+                (&raw const self.0)
+                    .expose_provenance()
+                    .cast_signed()
+                    .checked_add(percore_local_offset())
+                    .unwrap()
+                    .cast_unsigned(),
+            )
+            .unwrap(),
+        );
 
         debug_assert!(percore_ptr.is_aligned());
 
@@ -240,7 +252,7 @@ mod tests {
     use super::*;
     use crate as percore;
     use crate::ExceptionFree;
-    use core::{cell::RefCell, num::NonZero};
+    use core::cell::RefCell;
 
     #[percore]
     static VALUE: ExceptionLock<RefCell<u64>> =
