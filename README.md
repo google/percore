@@ -62,7 +62,7 @@ Currently only aarch32 and aarch64 are fully supported. The crate will build for
 architectures, but you'll need to provide your own implementation of the `exception_free` function.
 Patches are welcome to add support for other architectures.
 
-# Derive
+## Derive
 
 The `derive` feature enables the use of the `#[percore::percore]` attribute, which replaces a static
 with a `LinkedPerCore` of the same name in the `.percore` linker section. The wrapper stores the
@@ -106,9 +106,9 @@ It requires the following actions from the consuming project:
   `__PERCORE_SECONDARY_END__` symbols. It is recommended to align these sections to the cache line
   size but at least to 16 bytes on `AArch64`.
 
-## Example
+### Example
 
-### Initialization
+#### Initialization
 
 The primary core initializes the secondary per-core areas. Each secondary core then calculates its
 offset from its linear index and stores it in `TPIDR_EL1` before entering `main`.
@@ -135,7 +135,7 @@ global_asm!(
 );
 ```
 
-### `PercoreLocalOffsetImpl` implementation
+#### `PercoreLocalOffsetImpl` implementation
 
 This implementation returns the offset from `TPIDR_EL1`, the EL1 Software Thread ID Register.
 
@@ -154,7 +154,7 @@ unsafe impl PercoreLocalOffset for PercoreLocalOffsetImpl {
 }
 ```
 
-### Linker script
+#### Linker script
 
 The linker script places the primary core's initialized data in `.percore` and reserves an equally
 sized area for every secondary core in `.percore_secondary`.
@@ -179,7 +179,7 @@ ASSERT(
 } >image
 ```
 
-### Usage
+#### Usage
 
 All cores will have their own instance of `VARIABLE` which is initialized to 1.
 
@@ -198,7 +198,7 @@ exception_free(|token| {
 });
 ```
 
-### Accessing from assembly
+#### Accessing from assembly
 
 Assembly code can access the current core's instance by adding the offset in `TPIDR_EL1` to the
 variable's base address. This example increments the local instance of `VARIABLE`.
