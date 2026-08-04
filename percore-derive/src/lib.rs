@@ -34,8 +34,10 @@ pub fn percore(_attr: TokenStream, item: TokenStream) -> TokenStream {
     quote! {
         #[cfg_attr(target_os = "none", unsafe(link_section = ".percore"))]
         #(#attrs)*
-        #vis static #name: percore::derive::LinkedPerCore<#ty> =
-            unsafe { percore::derive::LinkedPerCore::new(#expr) };
+        #vis static #name: percore::derive::LinkedPerCore<#ty> = const {
+            let value = #expr;
+            unsafe { percore::derive::LinkedPerCore::new(value) }
+        };
     }
     .into()
 }
