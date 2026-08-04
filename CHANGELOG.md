@@ -1,5 +1,11 @@
 # Changelog
 
+## Unreleased
+
+### Bugfixes
+
+- Don't allow unsafe code in initialisation expression of `#[percore]` variables.
+
 ## 0.2.5
 
 ### New features

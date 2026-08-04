@@ -240,7 +240,7 @@ mod tests {
     use super::*;
     use crate as percore;
     use crate::ExceptionFree;
-    use core::cell::RefCell;
+    use core::{cell::RefCell, num::NonZero};
 
     #[percore]
     static VALUE: ExceptionLock<RefCell<u64>> =
@@ -264,5 +264,12 @@ mod tests {
 
         *VALUE.get().borrow_mut(token) = 10;
         assert_eq!(10, *VALUE.get().borrow(token).borrow());
+    }
+
+    #[test]
+    fn derive_unsafe() {
+        #[percore]
+        static VALUE: ExceptionLock<NonZero<u64>> =
+            ExceptionLock::new(unsafe { NonZero::new_unchecked(42) });
     }
 }
