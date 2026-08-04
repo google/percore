@@ -181,12 +181,12 @@ impl<T> LinkedPerCore<T> {
     /// Returns a shared reference to the value for the current CPU core.
     #[inline(always)]
     pub fn get(&self) -> &T {
-        // Safety: PercoreLocalOffset guarantees a valid offset.
+        // SAFETY: PercoreLocalOffset guarantees a valid offset.
         let percore_ptr = unsafe { NonNull::from_ref(&self.0).byte_offset(percore_local_offset()) };
 
         debug_assert!(percore_ptr.is_aligned());
 
-        // Safety:
+        // SAFETY:
         // * The percore region must be aligned to the maximum alignment of any percore variable,
         //   and `&self.0` must be aligned as it comes from a reference, so adding the offset to it
         //   must still be properly aligned. (In debug builds we also double-check with the
@@ -201,7 +201,7 @@ impl<T> LinkedPerCore<T> {
     }
 }
 
-// Safety: `LinkedPerCore` is safe between different cores, because each core has its own
+// SAFETY: `LinkedPerCore` is safe between different cores, because each core has its own
 // core-local instance of the variable. `ExceptionLock` also prevents concurrent access from runtime
 // and exception context.
 unsafe impl<T: Send> Sync for LinkedPerCore<ExceptionLock<T>> {}
@@ -249,7 +249,7 @@ mod tests {
     percore_local_offset!(PercoreLocalOffsetImpl);
     struct PercoreLocalOffsetImpl;
 
-    // Safety: Tests use the initialized primary-core value at offset zero.
+    // SAFETY: Tests use the initialized primary-core value at offset zero.
     unsafe impl PercoreLocalOffset for PercoreLocalOffsetImpl {
         fn percore_local_offset() -> isize {
             0
