@@ -5,19 +5,19 @@
 //! Assembly implementations of percore initialisation helper functions for AArch64 bare-metal
 //! targets where the number of cores is known at build time.
 //!
-//! These assume that your linker script has a `.percore_secondary` section located immediately
-//! after the `.percore` section, with `__start_percore_secondary` and `__stop_percore_secondary`
+//! These assume that your linker script has a `percore_secondary` section located immediately
+//! after the `percore` section, with `__start_percore_secondary` and `__stop_percore_secondary`
 //! symbols marking its start and end. e.g.
 //!
 //! ```ld
-//! .percore_secondary (NOLOAD) : ALIGN(ALIGNOF(.percore)) {
+//! percore_secondary (NOLOAD) : ALIGN(ALIGNOF(percore)) {
 //!     __start_percore_secondary = .;
 //!     . += (__start_percore - __stop_percore) * (CORE_COUNT - 1);
 //!     __stop_percore_secondary = .;
 //! } >image
 //! ```
 //!
-//! Note that the `.percore_secondary` section is only used for secondary cores; the `.percore`
+//! Note that the `percore_secondary` section is only used for secondary cores; the `percore`
 //! section itself is used for the primary core's copy of the variables in this case.
 
 use super::{START_PERCORE, STOP_PERCORE};
@@ -25,10 +25,10 @@ use core::arch::naked_asm;
 
 #[allow(improper_ctypes)]
 unsafe extern "Rust" {
-    /// Symbol marking the start of the `.percore_secondary` section.
+    /// Symbol marking the start of the `percore_secondary` section.
     #[link_name = "__start_percore_secondary"]
     pub safe static START_PERCORE_SECONDARY: ();
-    /// Symbol marking the end of the `.percore_secondary` section.
+    /// Symbol marking the end of the `percore_secondary` section.
     #[link_name = "__stop_percore_secondary"]
     pub safe static STOP_PERCORE_SECONDARY: ();
 }
@@ -37,7 +37,7 @@ unsafe extern "Rust" {
 /// area. The function is safe to be called from assembly without a stack present. It clobbers
 /// registers X0-X6.
 ///
-/// The function calculates the size of the `.percore` section as the difference between the
+/// The function calculates the size of the `percore` section as the difference between the
 /// `__start_percore` and `__stop_percore` symbols. Then it copies this memory area between the
 /// `__start_percore_secondary` and `__stop_percore_secondary` symbols as many times as it fits.
 /// The copy is done in 16 byte chunks, so these symbols must be aligned to at least a 16 byte

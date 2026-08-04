@@ -65,15 +65,15 @@ Patches are welcome to add support for other architectures.
 ## Derive
 
 The `derive` feature enables the use of the `#[percore::percore]` attribute, which replaces a static
-with a `LinkedPerCore` of the same name in the `.percore` linker section. The wrapper stores the
+with a `LinkedPerCore` of the same name in the `percore` linker section. The wrapper stores the
 primary core's value and accesses the corresponding copy for the current core. This is an
 alternative to declaring per-core variables with `PerCore`.
 
 By default, the primary core is assumed to have index 0, with the secondary cores following it
 sequentially. Each core has its own per-core area, and these areas are laid out contiguously in
-memory, like an array of sections. Only the primary core's area, represented by the `.percore`
+memory, like an array of sections. Only the primary core's area, represented by the `percore`
 section is included in the image, and it contains the initial values for per-core variables. The
-corresponding areas for the secondary cores, represented by the `.percore_secondary` section, are
+corresponding areas for the secondary cores, represented by the `percore_secondary` section, are
 not included in the image. The provided functions are suitable for tiny and small memory models.
 
 Projects may use a different memory layout, provided that they copy the initial variable values into
@@ -101,7 +101,7 @@ It requires the following actions from the consuming project:
 - Store this offset in a project specific way.
 - Implement `percore::derive::PercoreLocalOffset` for a type that retrieves the previously stored
   offset and mark the type with `#[percore::percore_local_offset]`.
-- Allocate `.percore` and `.percore_secondary` sections in the linker script and mark their
+- Allocate `percore` and `percore_secondary` sections in the linker script and mark their
   boundaries using the `__start_percore`, `__stop_percore`, `__start_percore_secondary` and
   `__stop_percore_secondary` symbols. It is recommended to align these sections to the cache line
   size but at least to 16 bytes on `AArch64`.
@@ -156,26 +156,23 @@ unsafe impl PercoreLocalOffset for PercoreLocalOffsetImpl {
 
 #### Linker script
 
-The linker script places the primary core's initialized data in `.percore` and reserves an equally
-sized area for every secondary core in `.percore_secondary`.
+The linker script places the primary core's initialized data in `percore` and reserves an equally
+sized area for every secondary core in `percore_secondary`. The linker will automatically generate
+`__start_percore`, `__stop_percore`, `__start_percore_secondary` and `__stop_percore_secondary`
+symbols for these sections.
 
 ```
-.percore : ALIGN(CACHE_LINE_SIZE) {
-    __start_percore = .;
-    *(SORT_BY_ALIGNMENT(.percore .percore.*))
+percore : ALIGN(CACHE_LINE_SIZE) {
+    *(SORT_BY_ALIGNMENT(percore percore.*))
     /*
      * Round the section size up to the actual alignment of the section. This ensures that we can
-     * have an array of aligned copies of the .percore section inside the .percore_secondary
-     * section.
+     * have an array of aligned copies of the percore section inside the percore_secondary section.
      */
-    . = ALIGN(ALIGNOF(.percore));
-    __stop_percore = .;
+    . = ALIGN(ALIGNOF(percore));
 } >image
 
-.percore_secondary (NOLOAD) : ALIGN(ALIGNOF(.percore)) {
-    __start_percore_secondary = .;
+percore_secondary (NOLOAD) : ALIGN(ALIGNOF(percore)) {
     . += (__stop_percore - __start_percore) * (CORE_COUNT - 1);
-    __stop_percore_secondary = .;
 } >image
 ```
 

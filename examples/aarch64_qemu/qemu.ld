@@ -14,21 +14,16 @@ CORE_COUNT = 2;
 
 SECTIONS
 {
-	.percore : ALIGN(16) {
-		__start_percore = .;
-		*(SORT_BY_ALIGNMENT(.percore .percore.*))
+	percore : ALIGN(16) {
+		*(SORT_BY_ALIGNMENT(percore percore.*))
 		/*
 		 * Round the section size up to the actual alignment of the section. This ensures that we can
-		 * have an array of aligned copies of the .percore section inside the .percore_secondary
-		 * section.
+		 * have an array of aligned copies of the percore section inside the percore_secondary section.
 		 */
-		. = ALIGN(ALIGNOF(.percore));
-		__stop_percore = .;
+		. = ALIGN(ALIGNOF(percore));
 	} >image
 
-	.percore_secondary (NOLOAD) : ALIGN(ALIGNOF(.percore)) {
-		__start_percore_secondary = .;
+	percore_secondary (NOLOAD) : ALIGN(ALIGNOF(percore)) {
 		. += (__stop_percore - __start_percore) * (CORE_COUNT - 1);
-		__stop_percore_secondary = .;
 	} >image
 }
