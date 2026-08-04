@@ -77,7 +77,7 @@
 pub mod aarch64;
 
 use crate::lock::ExceptionLock;
-use core::{num::NonZero, ptr::NonNull};
+use core::ptr::with_exposed_provenance;
 pub use percore_derive::percore;
 
 #[allow(improper_ctypes)]
@@ -184,18 +184,12 @@ impl<T> LinkedPerCore<T> {
         // We need to construct a new pointer with exposed provenance rather than just using
         // `byte_offset` on the pointer to `self.0` because the per-core copy is not part of the
         // same allocation.
-        let percore_ptr = NonNull::with_exposed_provenance(
-            NonZero::new(
-                (&raw const self.0)
-                    .expose_provenance()
-                    .cast_signed()
-                    .checked_add(percore_local_offset())
-                    .unwrap()
-                    .cast_unsigned(),
-            )
-            .unwrap(),
+        let percore_ptr = with_exposed_provenance::<T>(
+            ((&raw const self.0).expose_provenance().cast_signed() + percore_local_offset())
+                .cast_unsigned(),
         );
 
+        debug_assert!(!percore_ptr.is_null());
         debug_assert!(percore_ptr.is_aligned());
 
         // SAFETY:
@@ -203,13 +197,12 @@ impl<T> LinkedPerCore<T> {
         //   and `&self.0` must be aligned as it comes from a reference, so adding the offset to it
         //   must still be properly aligned. (In debug builds we also double-check with the
         //   debug_assert above.)
-        // * The pointer is non-null because it is constructed from NonNull and the offset produces
-        //   a valid address.
+        // * The pointer is non-null because the offset is guaranteed to produce a valid address.
         // * The PercoreLocalOffset implementation promises that the calculated pointer points into
         // * the percore memory area which is initialized and it is dereferenceable for the T type.
         // * Aliasing is prevented by each core having its own instance of the variable and by
         //   requiring `ExceptionLock` for `Sync` implementation.
-        unsafe { percore_ptr.as_ref() }
+        unsafe { percore_ptr.as_ref_unchecked() }
     }
 }
 
@@ -252,7 +245,7 @@ mod tests {
     use super::*;
     use crate as percore;
     use crate::ExceptionFree;
-    use core::cell::RefCell;
+    use core::{cell::RefCell, num::NonZero};
 
     #[percore]
     static VALUE: ExceptionLock<RefCell<u64>> =
