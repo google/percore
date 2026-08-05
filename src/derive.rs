@@ -48,10 +48,11 @@
 //! 3. Have each core initialise its own copy of the `.percore` section the first time it starts. In
 //!    this case there is no distinction between primary and secondary cores, and the original
 //!    `.percore` section must never be modified (or at least not until all cores have started and
-//!    initialised their copies).
+//!    initialised their copies). `percore_copy_secondary_data` can also be used for this.
 //!
-//! In any case, you must ensure that the alignmeant of each CPU's percore area is greater than or
-//! equal to to the maximum alignment of any percore variable.
+//! In any case, you must ensure that the alignment of each CPU's percore area is greater than or
+//! equal to to the maximum alignment of any percore variable, and that the memory has exposed
+//! provenance.
 //!
 //! # Usage
 //!
@@ -77,7 +78,7 @@
 pub mod aarch64;
 
 use crate::lock::ExceptionLock;
-use core::ptr::NonNull;
+use core::ptr::with_exposed_provenance;
 pub use percore_derive::percore;
 
 #[allow(improper_ctypes)]
@@ -102,6 +103,9 @@ pub fn percore_size() -> usize {
 ///
 /// Panics if the length of `secondary_percore_area` isn't a multiple of the size of the `.percore`
 /// section.
+///
+/// This also exposes the provenance of the `secondary_percore_area`, as `LinkedPerCore::get` will
+/// later construct a pointer to it with exposed provenance.
 ///
 /// # Safety
 ///
@@ -129,6 +133,10 @@ pub unsafe fn percore_copy_secondary_data(secondary_percore_area: *mut [u8]) {
             percore_start.copy_to_nonoverlapping(dest, percore_size);
         }
     }
+
+    // Expose the provenance of the secondary core area, because `LinkedPerCore::get` will construct
+    // a pointer to it with exposed provenance.
+    secondary_percore_area.expose_provenance();
 }
 
 /// Provides the offset of the local core's percore area.
@@ -181,9 +189,18 @@ impl<T> LinkedPerCore<T> {
     /// Returns a shared reference to the value for the current CPU core.
     #[inline(always)]
     pub fn get(&self) -> &T {
-        // SAFETY: PercoreLocalOffset guarantees a valid offset.
-        let percore_ptr = unsafe { NonNull::from_ref(&self.0).byte_offset(percore_local_offset()) };
+        // We need to construct a new pointer with exposed provenance rather than just using
+        // `byte_offset` on the pointer to `self.0` because the per-core copy is not part of the
+        // same allocation.
+        let percore_ptr = with_exposed_provenance::<T>(
+            ((&raw const self.0)
+                .expose_provenance()
+                .cast_signed()
+                .wrapping_add(percore_local_offset()))
+            .cast_unsigned(),
+        );
 
+        debug_assert!(!percore_ptr.is_null());
         debug_assert!(percore_ptr.is_aligned());
 
         // SAFETY:
@@ -191,13 +208,12 @@ impl<T> LinkedPerCore<T> {
         //   and `&self.0` must be aligned as it comes from a reference, so adding the offset to it
         //   must still be properly aligned. (In debug builds we also double-check with the
         //   debug_assert above.)
-        // * The pointer is non-null because it is constructed from NonNull and the offset produces
-        //   a valid address.
+        // * The pointer is non-null because the offset is guaranteed to produce a valid address.
         // * The PercoreLocalOffset implementation promises that the calculated pointer points into
         // * the percore memory area which is initialized and it is dereferenceable for the T type.
         // * Aliasing is prevented by each core having its own instance of the variable and by
         //   requiring `ExceptionLock` for `Sync` implementation.
-        unsafe { percore_ptr.as_ref() }
+        unsafe { &*percore_ptr }
     }
 }
 

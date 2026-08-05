@@ -5,6 +5,7 @@
 ### Bugfixes
 
 - Don't allow unsafe code in initialisation expression of `#[percore]` variables.
+- Fixed undefined behaviour in `LinkedPerCore::get` due to pointer provenance.
 
 ## 0.2.5
 
