@@ -193,8 +193,11 @@ impl<T> LinkedPerCore<T> {
         // `byte_offset` on the pointer to `self.0` because the per-core copy is not part of the
         // same allocation.
         let percore_ptr = with_exposed_provenance::<T>(
-            ((&raw const self.0).expose_provenance().cast_signed() + percore_local_offset())
-                .cast_unsigned(),
+            ((&raw const self.0)
+                .expose_provenance()
+                .cast_signed()
+                .wrapping_add(percore_local_offset()))
+            .cast_unsigned(),
         );
 
         debug_assert!(!percore_ptr.is_null());
