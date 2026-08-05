@@ -202,7 +202,7 @@ impl<T> LinkedPerCore<T> {
         // * the percore memory area which is initialized and it is dereferenceable for the T type.
         // * Aliasing is prevented by each core having its own instance of the variable and by
         //   requiring `ExceptionLock` for `Sync` implementation.
-        unsafe { percore_ptr.as_ref_unchecked() }
+        unsafe { &*percore_ptr }
     }
 }
 
