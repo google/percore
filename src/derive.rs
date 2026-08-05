@@ -154,6 +154,10 @@ pub unsafe fn percore_copy_secondary_data(secondary_percore_area: *mut [u8]) {
     let percore_start = (&raw const START_PERCORE).cast::<u8>();
     let percore_size = percore_size();
 
+    if percore_size == 0 {
+        return;
+    }
+
     assert!(secondary_percore_area.len().is_multiple_of(percore_size));
     let copies = secondary_percore_area.len() / percore_size;
 
