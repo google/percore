@@ -11,12 +11,12 @@
 //!
 //! # Linker script
 //!
-//! You must include the `.percore` section in your linker script, with `__PERCORE_START__` and
-//! `__PERCORE_END__` symbols to mark its boundaries. E.g.:
+//! You must include the `.percore` section in your linker script, with `__start_percore` and
+//! `__stop_percore` symbols to mark its boundaries. E.g.:
 //!
 //! ```ld
 //! .percore : ALIGN(CACHE_LINE_SIZE) {
-//!     __PERCORE_START__ = .;
+//!     __start_percore = .;
 //!     *(SORT_BY_ALIGNMENT(.percore .percore.*))
 //!     /*
 //!      * Round the section size up to the actual alignment of the section. This ensures that we
@@ -24,7 +24,7 @@
 //!      * section.
 //!      */
 //!     . = ALIGN(ALIGNOF(.percore));
-//!     __PERCORE_END__ = .;
+//!     __stop_percore = .;
 //! } >image
 //! ```
 //!
@@ -33,8 +33,8 @@
 //! Three possible ways to allocate and initialise each CPU's percore area are:
 //!
 //! 1. If you know the number of cores at build time, allocate a `.percore_secondary` section for it
-//!    in your linker script, and provide the `__PERCORE_SECONDARY_START__` and
-//!    `__PERCORE_SECONDARY_END__` symbols. Copy the appropriate number of copies of the `.percore`
+//!    in your linker script, and provide the `__start_percore_secondary` and
+//!    `__stop_percore_secondary` symbols. Copy the appropriate number of copies of the `.percore`
 //!    section to this section in assembly code before any Rust code runs. On AArch64 bare-metal
 //!    targets [`aarch64::percore_copy_secondary_data`] is provided to implement this, and
 //!    [`aarch64::percore_calculate_local_offset`] to calculate the area's offset from a CPU linear
@@ -84,21 +84,23 @@ pub use percore_derive::percore;
 #[allow(improper_ctypes)]
 unsafe extern "Rust" {
     /// Symbol marking the start of the `.percore` section.
-    pub safe static __PERCORE_START__: ();
+    #[link_name = "__start_percore"]
+    pub safe static START_PERCORE: ();
     /// Symbol marking the end of the `.percore` section.
-    pub safe static __PERCORE_END__: ();
+    #[link_name = "__stop_percore"]
+    pub safe static STOP_PERCORE: ();
 }
 
 /// Returns the size in bytes of a single core's `.percore` section.
 pub fn percore_size() -> usize {
-    &raw const __PERCORE_END__ as usize - &raw const __PERCORE_START__ as usize
+    &raw const STOP_PERCORE as usize - &raw const START_PERCORE as usize
 }
 
 /// Duplicates the contents of the initialised percore section into the secondary cores' percore
 /// area.
 ///
 /// The function calculates the size of the `.percore` section as the difference between the
-/// `__PERCORE_START__` and `__PERCORE_END__` symbols. Then it copies this memory area into the
+/// `__start_percore` and `__stop_percore` symbols. Then it copies this memory area into the
 /// given `secondary_percore_area` as many times as it fits.
 ///
 /// Panics if the length of `secondary_percore_area` isn't a multiple of the size of the `.percore`
@@ -119,7 +121,7 @@ pub fn percore_size() -> usize {
 /// AtomicBool with release semantics and having other cores wait until they see the written value
 /// with acquire semantics.
 pub unsafe fn percore_copy_secondary_data(secondary_percore_area: *mut [u8]) {
-    let percore_start = (&raw const __PERCORE_START__).cast::<u8>();
+    let percore_start = (&raw const START_PERCORE).cast::<u8>();
     let percore_size = percore_size();
 
     assert!(secondary_percore_area.len().is_multiple_of(percore_size));

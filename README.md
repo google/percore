@@ -102,8 +102,8 @@ It requires the following actions from the consuming project:
 - Implement `percore::derive::PercoreLocalOffset` for a type that retrieves the previously stored
   offset and mark the type with `#[percore::percore_local_offset]`.
 - Allocate `.percore` and `.percore_secondary` sections in the linker script and mark their
-  boundaries using the `__PERCORE_START__`, `__PERCORE_END__`, `__PERCORE_SECONDARY_START__` and
-  `__PERCORE_SECONDARY_END__` symbols. It is recommended to align these sections to the cache line
+  boundaries using the `__start_percore`, `__stop_percore`, `__start_percore_secondary` and
+  `__stop_percore_secondary` symbols. It is recommended to align these sections to the cache line
   size but at least to 16 bytes on `AArch64`.
 
 ### Example
@@ -161,7 +161,7 @@ sized area for every secondary core in `.percore_secondary`.
 
 ```
 .percore : ALIGN(CACHE_LINE_SIZE) {
-    __PERCORE_START__ = .;
+    __start_percore = .;
     *(SORT_BY_ALIGNMENT(.percore .percore.*))
     /*
      * Round the section size up to the actual alignment of the section. This ensures that we can
@@ -169,13 +169,13 @@ sized area for every secondary core in `.percore_secondary`.
      * section.
      */
     . = ALIGN(ALIGNOF(.percore));
-    __PERCORE_END__ = .;
+    __stop_percore = .;
 } >image
 
 .percore_secondary (NOLOAD) : ALIGN(ALIGNOF(.percore)) {
-    __PERCORE_SECONDARY_START__ = .;
-    . += (__PERCORE_END__ - __PERCORE_START__) * (CORE_COUNT - 1);
-    __PERCORE_SECONDARY_END__ = .;
+    __start_percore_secondary = .;
+    . += (__stop_percore - __start_percore) * (CORE_COUNT - 1);
+    __stop_percore_secondary = .;
 } >image
 ```
 

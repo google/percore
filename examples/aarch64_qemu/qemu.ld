@@ -15,7 +15,7 @@ CORE_COUNT = 2;
 SECTIONS
 {
 	.percore : ALIGN(16) {
-		__PERCORE_START__ = .;
+		__start_percore = .;
 		*(SORT_BY_ALIGNMENT(.percore .percore.*))
 		/*
 		 * Round the section size up to the actual alignment of the section. This ensures that we can
@@ -23,12 +23,12 @@ SECTIONS
 		 * section.
 		 */
 		. = ALIGN(ALIGNOF(.percore));
-		__PERCORE_END__ = .;
+		__stop_percore = .;
 	} >image
 
 	.percore_secondary (NOLOAD) : ALIGN(ALIGNOF(.percore)) {
-		__PERCORE_SECONDARY_START__ = .;
-		. += (__PERCORE_END__ - __PERCORE_START__) * (CORE_COUNT - 1);
-		__PERCORE_SECONDARY_END__ = .;
+		__start_percore_secondary = .;
+		. += (__stop_percore - __start_percore) * (CORE_COUNT - 1);
+		__stop_percore_secondary = .;
 	} >image
 }
