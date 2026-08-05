@@ -71,8 +71,10 @@ fn main(arg0: u64, arg1: u64, arg2: u64, arg3: u64) -> ! {
     exception_free(|token| {
         let mut state = STATE.get().borrow_mut(token);
         writeln!(UART.lock(), "Core 0: STATE is {}", state).unwrap();
+        assert_eq!(*state, 42);
         *state += 2;
         writeln!(UART.lock(), "Core 0: Added 2, STATE is now {}", state).unwrap();
+        assert_eq!(*state, 44);
     });
 
     let secondary_stack = SpinMutexGuard::leak(SECONDARY_STACK.try_lock().unwrap());
@@ -91,6 +93,7 @@ fn main(arg0: u64, arg1: u64, arg2: u64, arg3: u64) -> ! {
     exception_free(|token| {
         let state = STATE.get().borrow_mut(token);
         writeln!(UART.lock(), "Core 0: STATE is {}", state).unwrap();
+        assert_eq!(*state, 44);
     });
 
     system_off::<Hvc>().unwrap();
@@ -103,8 +106,10 @@ fn secondary_main() {
     exception_free(|token| {
         let mut state = STATE.get().borrow_mut(token);
         writeln!(UART.lock(), "Core 1: STATE is {}", state).unwrap();
+        assert_eq!(*state, 42);
         *state -= 2;
         writeln!(UART.lock(), "Core 1: Subtracted 2, STATE is now {}", state).unwrap();
+        assert_eq!(*state, 40);
     });
 
     SECONDARY_FINISHED.store(true, Ordering::SeqCst);
