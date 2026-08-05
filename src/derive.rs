@@ -48,10 +48,11 @@
 //! 3. Have each core initialise its own copy of the `.percore` section the first time it starts. In
 //!    this case there is no distinction between primary and secondary cores, and the original
 //!    `.percore` section must never be modified (or at least not until all cores have started and
-//!    initialised their copies).
+//!    initialised their copies). `percore_copy_secondary_data` can also be used for this.
 //!
-//! In any case, you must ensure that the alignmeant of each CPU's percore area is greater than or
-//! equal to to the maximum alignment of any percore variable.
+//! In any case, you must ensure that the alignment of each CPU's percore area is greater than or
+//! equal to to the maximum alignment of any percore variable, and that the memory has exposed
+//! provenance.
 //!
 //! # Usage
 //!
@@ -103,6 +104,9 @@ pub fn percore_size() -> usize {
 /// Panics if the length of `secondary_percore_area` isn't a multiple of the size of the `.percore`
 /// section.
 ///
+/// This also exposes the provenance of the `secondary_percore_area`, as `LinkedPerCore::get` will
+/// later construct a pointer to it with exposed provenance.
+///
 /// # Safety
 ///
 /// This must only be called before any core accesses any percore variable.
@@ -129,6 +133,10 @@ pub unsafe fn percore_copy_secondary_data(secondary_percore_area: *mut [u8]) {
             percore_start.copy_to_nonoverlapping(dest, percore_size);
         }
     }
+
+    // Expose the provenance of the secondary core area, because `LinkedPerCore::get` will construct
+    // a pointer to it with exposed provenance.
+    secondary_percore_area.expose_provenance();
 }
 
 /// Provides the offset of the local core's percore area.
