@@ -1,6 +1,6 @@
 [package]
 name = "percore"
-version = "0.2.5"
+version = "0.3.0"
 edition = "2024"
 license = "MIT OR Apache-2.0"
 description = "Safe per-CPU core mutable state on no_std platforms through exception masking."
@@ -16,7 +16,7 @@ default = ["alloc", "zerocopy"]
 derive = ["percore-derive"]
 
 [dependencies]
-percore-derive = { version = "=0.2.5", path = "percore-derive", optional = true }
+percore-derive = { version = "=0.3.0", path = "percore-derive", optional = true }
 zerocopy = { version = "0.8.50", optional = true, features = ["derive"] }
 
 [dev-dependencies]
