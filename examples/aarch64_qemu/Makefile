@@ -2,9 +2,11 @@
 # This project is dual-licensed under Apache 2.0 and MIT terms.
 # See LICENSE-APACHE and LICENSE-MIT for details.
 
-.PHONY: build qemu_boxed_slice qemu_macro qemu_static_array
+.PHONY: build qemu_boxed_slice qemu_macro qemu_static_array qemu_all
 
-all: ../../target/boxed_slice.bin ../../target/static_array.bin
+all: ../../target/boxed_slice.bin ../../target/macro.bin ../../target/static_array.bin
+
+qemu_all: qemu_boxed_slice qemu_macro qemu_static_array
 
 build:
 	cargo build --target aarch64-unknown-none
