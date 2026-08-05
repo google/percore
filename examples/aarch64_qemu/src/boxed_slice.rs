@@ -16,7 +16,7 @@ mod common;
 use crate::common::{SECONDARY_STACK, UART, init_heap};
 use aarch64_rt::{entry, start_core};
 use alloc::boxed::Box;
-use arm_sysregs::read_mpidr_el1;
+use arm_sysregs::el1::accessors::read_mpidr_el1;
 use core::{
     cell::RefCell,
     fmt::Write,
