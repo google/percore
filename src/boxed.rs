@@ -59,6 +59,7 @@ mod tests {
         });
 
         {
+            // SAFETY: There are no exceptions in the simulated environment of the tests.
             let token = unsafe { ExceptionFree::new() };
             assert_eq!(*STATE.get().unwrap().get().borrow_mut(token), 42);
             *STATE.get().unwrap().get().borrow_mut(token) += 1;
@@ -72,6 +73,7 @@ mod tests {
             LazyLock::new(|| PerCore::new_with_default(4));
 
         {
+            // SAFETY: There are no exceptions in the simulated environment of the tests.
             let token = unsafe { ExceptionFree::new() };
             assert_eq!(*STATE.get().borrow_mut(token), 0);
             *STATE.get().borrow_mut(token) += 1;

@@ -288,30 +288,55 @@ mod tests {
     use super::*;
     use crate as percore;
     use crate::ExceptionFree;
-    use core::{cell::RefCell, num::NonZero};
+    use core::{cell::RefCell, num::NonZero, ptr::NonNull};
+    use std::{thread, thread_local};
 
-    #[percore]
-    static VALUE: ExceptionLock<RefCell<u64>> =
-        ExceptionLock::new(RefCell::new(0xabcd_ef01_2345_6789));
+    // We simulate cores with threads for unit tests, so we use a thread-local for the percore
+    // region of each thread.
+    thread_local! {
+        static PERCORE_REGION: RefCell<Option<NonNull<[u8]>>> = RefCell::new(None);
+    }
 
     percore_local_offset!(PercoreLocalOffsetImpl);
     struct PercoreLocalOffsetImpl;
 
-    // SAFETY: Tests use the initialized primary-core value at offset zero.
+    // SAFETY: The offset returned always points to a region allocated for the core, initialised
+    // with a copy of the percore section.
     unsafe impl PercoreLocalOffset for PercoreLocalOffsetImpl {
         fn percore_local_offset() -> isize {
-            0
+            PERCORE_REGION.with_borrow_mut(|region| {
+                let region = region.get_or_insert_with(|| {
+                    let new_region = Box::into_raw(vec![0; percore_size()].into_boxed_slice());
+                    // SAFETY: new_region is valid for writes because we just allocated it, and no
+                    // percore variables have been accessed on this core yet because this is the
+                    // first time percore_local_offset has been called.
+                    unsafe {
+                        percore_copy_secondary_data(new_region);
+                    }
+                    NonNull::new(new_region).unwrap()
+                });
+                // Calculate offset.
+                isize::try_from(region.addr().get())
+                    .unwrap()
+                    .checked_sub((&raw const START_PERCORE).addr().try_into().unwrap())
+                    .unwrap()
+            })
         }
     }
 
     #[test]
     fn test_percore_derive() {
+        #[percore]
+        static VALUE: ExceptionLock<RefCell<u64>> =
+            ExceptionLock::new(RefCell::new(0xabcd_ef01_2345_6789));
+
+        // SAFETY: There are no exceptions in the simulated environment of the tests.
         let token = unsafe { ExceptionFree::new() };
 
-        assert_eq!(0xabcd_ef01_2345_6789, *VALUE.get().borrow(token).borrow());
+        assert_eq!(*VALUE.get().borrow(token).borrow(), 0xabcd_ef01_2345_6789);
 
         *VALUE.get().borrow_mut(token) = 10;
-        assert_eq!(10, *VALUE.get().borrow(token).borrow());
+        assert_eq!(*VALUE.get().borrow(token).borrow(), 10);
     }
 
     #[test]
@@ -319,5 +344,31 @@ mod tests {
         #[percore]
         static VALUE: ExceptionLock<NonZero<u64>> =
             ExceptionLock::new(unsafe { NonZero::new_unchecked(42) });
+    }
+
+    #[test]
+    fn multiple_cores() {
+        // SAFETY: There are no exceptions in the simulated environment of the tests.
+        let token = unsafe { ExceptionFree::new() };
+
+        #[percore]
+        static VALUE: ExceptionLock<RefCell<u64>> = ExceptionLock::new(RefCell::new(42));
+
+        assert_eq!(*VALUE.get().borrow_mut(token), 42);
+        *VALUE.get().borrow_mut(token) = 1;
+        assert_eq!(*VALUE.get().borrow_mut(token), 1);
+
+        thread::spawn(|| {
+            // SAFETY: There are no exceptions in the simulated environment of the tests.
+            let token = unsafe { ExceptionFree::new() };
+
+            assert_eq!(*VALUE.get().borrow_mut(token), 42);
+            *VALUE.get().borrow_mut(token) = 2;
+            assert_eq!(*VALUE.get().borrow_mut(token), 2);
+        })
+        .join()
+        .unwrap();
+
+        assert_eq!(*VALUE.get().borrow_mut(token), 1);
     }
 }

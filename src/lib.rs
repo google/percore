@@ -54,7 +54,7 @@
 //! }
 //! ```
 
-#![no_std]
+#![cfg_attr(not(test), no_std)]
 #![cfg_attr(docsrs, feature(doc_cfg))]
 #![deny(clippy::undocumented_unsafe_blocks)]
 #![deny(unsafe_op_in_unsafe_fn)]
@@ -153,7 +153,7 @@ mod tests {
     /// A Fake implementation of `Cores` for test, that will always return 0.
     pub struct FakeCoresImpl;
 
-    // SAFETY: Tests are all run on a single core.
+    // SAFETY: These tests are all run on a single core.
     unsafe impl Cores for FakeCoresImpl {
         fn core_index() -> usize {
             0
@@ -166,6 +166,7 @@ mod tests {
             PerCore::new([const { ExceptionLock::new(RefCell::new(42)) }; 4]);
 
         {
+            // SAFETY: There are no exceptions in the simulated environment of the tests.
             let token = unsafe { ExceptionFree::new() };
             assert_eq!(*STATE.get().borrow_mut(token), 42);
             *STATE.get().borrow_mut(token) += 1;
