@@ -18,14 +18,14 @@
 //! .percore : ALIGN(CACHE_LINE_SIZE) {
 //!     __PERCORE_START__ = .;
 //!     *(SORT_BY_ALIGNMENT(.percore .percore.*))
-//!     . = ALIGN(CACHE_LINE_SIZE);
+//!     /*
+//!      * Round the section size up to the actual alignment of the section. This ensures that we
+//!      * can have an array of aligned copies of the .percore section inside the .percore_secondary
+//!      * section.
+//!      */
+//!     . = ALIGN(ALIGNOF(.percore));
 //!     __PERCORE_END__ = .;
 //! } >image
-//!
-//! ASSERT(
-//!     ALIGNOF(.percore) <= CACHE_LINE_SIZE,
-//!     ".percore contains an object aligned to a larger boundary than the section's alignment."
-//! )
 //! ```
 //!
 //! # Initialisation

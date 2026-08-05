@@ -17,16 +17,16 @@ SECTIONS
 	.percore : ALIGN(16) {
 		__PERCORE_START__ = .;
 		*(SORT_BY_ALIGNMENT(.percore .percore.*))
-		. = ALIGN(16);
+		/*
+		 * Round the section size up to the actual alignment of the section. This ensures that we can
+		 * have an array of aligned copies of the .percore section inside the .percore_secondary
+		 * section.
+		 */
+		. = ALIGN(ALIGNOF(.percore));
 		__PERCORE_END__ = .;
 	} >image
 
-	ASSERT(
-		ALIGNOF(.percore) <= 16,
-		".percore contains an object aligned to a larger boundary than the sections alignment"
-	)
-
-	.percore_secondary (NOLOAD) : ALIGN(16) {
+	.percore_secondary (NOLOAD) : ALIGN(ALIGNOF(.percore)) {
 		__PERCORE_SECONDARY_START__ = .;
 		. += (__PERCORE_END__ - __PERCORE_START__) * (CORE_COUNT - 1);
 		__PERCORE_SECONDARY_END__ = .;

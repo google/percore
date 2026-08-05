@@ -10,7 +10,7 @@
 //! symbols marking its start and end. e.g.
 //!
 //! ```ld
-//! .percore_secondary (NOLOAD) : ALIGN(CACHE_LINE_SIZE) {
+//! .percore_secondary (NOLOAD) : ALIGN(ALIGNOF(.percore)) {
 //!     __PERCORE_SECONDARY_START__ = .;
 //!     . += (__PERCORE_END__ - __PERCORE_START__) * (CORE_COUNT - 1);
 //!     __PERCORE_SECONDARY_END__ = .;
