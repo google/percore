@@ -50,6 +50,8 @@ mod tests {
     fn percore_boxed_slice() {
         static STATE: Once<PerCore<BoxedSlice, FakeCoresImpl>> = Once::new();
 
+        FakeCoresImpl::set_core_index(0);
+
         STATE.call_once(|| {
             let boxed_slice: BoxedSlice = repeat_with(|| ExceptionLock::new(RefCell::new(42)))
                 .take(4)
@@ -71,6 +73,8 @@ mod tests {
     fn percore_boxed_slice_default() {
         static STATE: LazyLock<PerCore<BoxedSlice, FakeCoresImpl>> =
             LazyLock::new(|| PerCore::new_with_default(4));
+
+        FakeCoresImpl::set_core_index(0);
 
         {
             // SAFETY: There are no exceptions in the simulated environment of the tests.

@@ -149,14 +149,30 @@ unsafe impl<T: Send, C: Cores, const CORE_COUNT: usize> Sync
 mod tests {
     use super::*;
     use core::cell::RefCell;
+    use std::sync::Mutex;
 
-    /// A Fake implementation of `Cores` for test, that will always return 0.
+    /// Index of the current simulated core. Must be set to an actual number before accessing a
+    /// PerCore variable.
+    static CORE_INDEX: Mutex<Option<usize>> = Mutex::new(None);
+
+    /// A Fake implementation of `Cores` for tests, which will return the value set by
+    /// `set_core_index`.
     pub struct FakeCoresImpl;
+
+    impl FakeCoresImpl {
+        /// Sets the fake core index for this thread.
+        pub fn set_core_index(core_index: usize) {
+            *CORE_INDEX.lock().unwrap() = Some(core_index);
+        }
+    }
 
     // SAFETY: These tests are all run on a single core.
     unsafe impl Cores for FakeCoresImpl {
         fn core_index() -> usize {
-            0
+            CORE_INDEX
+                .lock()
+                .unwrap()
+                .expect("CORE_INDEX not set in test")
         }
     }
 
@@ -165,11 +181,30 @@ mod tests {
         static STATE: PerCore<[ExceptionLock<RefCell<u32>>; 4], FakeCoresImpl> =
             PerCore::new([const { ExceptionLock::new(RefCell::new(42)) }; 4]);
 
+        FakeCoresImpl::set_core_index(0);
         {
             // SAFETY: There are no exceptions in the simulated environment of the tests.
             let token = unsafe { ExceptionFree::new() };
             assert_eq!(*STATE.get().borrow_mut(token), 42);
             *STATE.get().borrow_mut(token) += 1;
+            assert_eq!(*STATE.get().borrow_mut(token), 43);
+        }
+
+        // A different core should see the original value.
+        FakeCoresImpl::set_core_index(1);
+        {
+            // SAFETY: There are no exceptions in the simulated environment of the tests.
+            let token = unsafe { ExceptionFree::new() };
+            assert_eq!(*STATE.get().borrow_mut(token), 42);
+            *STATE.get().borrow_mut(token) -= 2;
+            assert_eq!(*STATE.get().borrow_mut(token), 40);
+        }
+
+        // The first core should still see the value it set.
+        FakeCoresImpl::set_core_index(0);
+        {
+            // SAFETY: There are no exceptions in the simulated environment of the tests.
+            let token = unsafe { ExceptionFree::new() };
             assert_eq!(*STATE.get().borrow_mut(token), 43);
         }
     }
