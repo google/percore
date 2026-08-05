@@ -84,10 +84,40 @@ pub use percore_derive::percore;
 #[allow(improper_ctypes)]
 unsafe extern "Rust" {
     /// Symbol marking the start of the `percore` section.
-    #[link_name = "__start_percore"]
+    #[cfg_attr(
+        any(
+            target_os = "none",
+            target_os = "linux",
+            target_os = "android",
+            target_os = "fuchsia",
+            target_os = "psp",
+            target_os = "freebsd",
+            target_os = "openbsd",
+        ),
+        link_name = "__start_percore"
+    )]
+    #[cfg_attr(
+        any(target_os = "macos", target_os = "ios", target_os = "tvos"),
+        link_name = "\x01section$start$__DATA$__percore"
+    )]
     pub safe static START_PERCORE: ();
     /// Symbol marking the end of the `percore` section.
-    #[link_name = "__stop_percore"]
+    #[cfg_attr(
+        any(
+            target_os = "none",
+            target_os = "linux",
+            target_os = "android",
+            target_os = "fuchsia",
+            target_os = "psp",
+            target_os = "freebsd",
+            target_os = "openbsd",
+        ),
+        link_name = "__stop_percore"
+    )]
+    #[cfg_attr(
+        any(target_os = "macos", target_os = "ios", target_os = "tvos"),
+        link_name = "\x01section$end$__DATA$__percore"
+    )]
     pub safe static STOP_PERCORE: ();
 }
 

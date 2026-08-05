@@ -32,7 +32,8 @@ pub fn percore(_attr: TokenStream, item: TokenStream) -> TokenStream {
     let expr = &static_item.expr;
 
     quote! {
-        #[cfg_attr(target_os = "none", unsafe(link_section = "percore"))]
+        #[cfg_attr(any(target_os = "none", target_os = "linux", target_os = "android", target_os = "fuchsia", target_os = "psp", target_os = "freebsd", target_os = "openbsd"), unsafe(link_section = "percore"))]
+        #[cfg_attr(any(target_os = "macos", target_os = "ios", target_os = "tvos"), unsafe(link_section = "__DATA,__percore"))]
         #(#attrs)*
         #vis static #name: percore::derive::LinkedPerCore<#ty> = const {
             let value = #expr;
