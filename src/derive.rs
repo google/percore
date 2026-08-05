@@ -4,27 +4,27 @@
 
 //! Linker section based per-core variables
 //!
-//! The `percore` attribute places a variable's initial value in the `.percore` linker section and
+//! The `percore` attribute places a variable's initial value in the `percore` linker section and
 //! exposes a `LinkedPerCore` wrapper that accesses the copy for the local CPU. The consuming
 //! project must initialize each CPU's percore area and provide its offset by implementing
 //! `PercoreLocalOffset` on a type marked with `percore_local_offset`.
 //!
 //! # Linker script
 //!
-//! You must include the `.percore` section in your linker script, with `__PERCORE_START__` and
-//! `__PERCORE_END__` symbols to mark its boundaries. E.g.:
+//! You must include the `percore` section in your linker script, with `__start_percore` and
+//! `__stop_percore` symbols to mark its boundaries. E.g.:
 //!
 //! ```ld
-//! .percore : ALIGN(CACHE_LINE_SIZE) {
-//!     __PERCORE_START__ = .;
-//!     *(SORT_BY_ALIGNMENT(.percore .percore.*))
+//! percore : ALIGN(CACHE_LINE_SIZE) {
+//!     __start_percore = .;
+//!     *(SORT_BY_ALIGNMENT(percore percore.*))
 //!     /*
 //!      * Round the section size up to the actual alignment of the section. This ensures that we
-//!      * can have an array of aligned copies of the .percore section inside the .percore_secondary
+//!      * can have an array of aligned copies of the percore section inside the percore_secondary
 //!      * section.
 //!      */
-//!     . = ALIGN(ALIGNOF(.percore));
-//!     __PERCORE_END__ = .;
+//!     . = ALIGN(ALIGNOF(percore));
+//!     __stop_percore = .;
 //! } >image
 //! ```
 //!
@@ -32,22 +32,22 @@
 //!
 //! Three possible ways to allocate and initialise each CPU's percore area are:
 //!
-//! 1. If you know the number of cores at build time, allocate a `.percore_secondary` section for it
-//!    in your linker script, and provide the `__PERCORE_SECONDARY_START__` and
-//!    `__PERCORE_SECONDARY_END__` symbols. Copy the appropriate number of copies of the `.percore`
+//! 1. If you know the number of cores at build time, allocate a `percore_secondary` section for it
+//!    in your linker script, and provide the `__start_percore_secondary` and
+//!    `__stop_percore_secondary` symbols. Copy the appropriate number of copies of the `percore`
 //!    section to this section in assembly code before any Rust code runs. On AArch64 bare-metal
 //!    targets [`aarch64::percore_copy_secondary_data`] is provided to implement this, and
 //!    [`aarch64::percore_calculate_local_offset`] to calculate the area's offset from a CPU linear
 //!    index. This must either be done before caches are enabled or with appropriate cache
 //!    maintenance operations to ensure that it is visible to all cores.
 //! 2. In your Rust entry point before any access to percore variables, copy the appropriate number
-//!    of copies of the `.percore` section to an appropriately sized area of memory.
+//!    of copies of the `percore` section to an appropriately sized area of memory.
 //!    [`percore_copy_secondary_data`] is provided to implement this. In this case you must use Rust
 //!    synchronisation primitives (e.g. an AtomicBool) to ensure that this happens-before any access
 //!    to percore variables.
-//! 3. Have each core initialise its own copy of the `.percore` section the first time it starts. In
+//! 3. Have each core initialise its own copy of the `percore` section the first time it starts. In
 //!    this case there is no distinction between primary and secondary cores, and the original
-//!    `.percore` section must never be modified (or at least not until all cores have started and
+//!    `percore` section must never be modified (or at least not until all cores have started and
 //!    initialised their copies). `percore_copy_secondary_data` can also be used for this.
 //!
 //! In any case, you must ensure that the alignment of each CPU's percore area is greater than or
@@ -83,25 +83,57 @@ pub use percore_derive::percore;
 
 #[allow(improper_ctypes)]
 unsafe extern "Rust" {
-    /// Symbol marking the start of the `.percore` section.
-    pub safe static __PERCORE_START__: ();
-    /// Symbol marking the end of the `.percore` section.
-    pub safe static __PERCORE_END__: ();
+    /// Symbol marking the start of the `percore` section.
+    #[cfg_attr(
+        any(
+            target_os = "none",
+            target_os = "linux",
+            target_os = "android",
+            target_os = "fuchsia",
+            target_os = "psp",
+            target_os = "freebsd",
+            target_os = "openbsd",
+        ),
+        link_name = "__start_percore"
+    )]
+    #[cfg_attr(
+        any(target_os = "macos", target_os = "ios", target_os = "tvos"),
+        link_name = "\x01section$start$__DATA$__percore"
+    )]
+    pub safe static START_PERCORE: ();
+    /// Symbol marking the end of the `percore` section.
+    #[cfg_attr(
+        any(
+            target_os = "none",
+            target_os = "linux",
+            target_os = "android",
+            target_os = "fuchsia",
+            target_os = "psp",
+            target_os = "freebsd",
+            target_os = "openbsd",
+        ),
+        link_name = "__stop_percore"
+    )]
+    #[cfg_attr(
+        any(target_os = "macos", target_os = "ios", target_os = "tvos"),
+        link_name = "\x01section$end$__DATA$__percore"
+    )]
+    pub safe static STOP_PERCORE: ();
 }
 
-/// Returns the size in bytes of a single core's `.percore` section.
+/// Returns the size in bytes of a single core's `percore` section.
 pub fn percore_size() -> usize {
-    &raw const __PERCORE_END__ as usize - &raw const __PERCORE_START__ as usize
+    &raw const STOP_PERCORE as usize - &raw const START_PERCORE as usize
 }
 
 /// Duplicates the contents of the initialised percore section into the secondary cores' percore
 /// area.
 ///
-/// The function calculates the size of the `.percore` section as the difference between the
-/// `__PERCORE_START__` and `__PERCORE_END__` symbols. Then it copies this memory area into the
+/// The function calculates the size of the `percore` section as the difference between the
+/// `__start_percore` and `__stop_percore` symbols. Then it copies this memory area into the
 /// given `secondary_percore_area` as many times as it fits.
 ///
-/// Panics if the length of `secondary_percore_area` isn't a multiple of the size of the `.percore`
+/// Panics if the length of `secondary_percore_area` isn't a multiple of the size of the `percore`
 /// section.
 ///
 /// This also exposes the provenance of the `secondary_percore_area`, as `LinkedPerCore::get` will
@@ -111,7 +143,7 @@ pub fn percore_size() -> usize {
 ///
 /// This must only be called before any core accesses any percore variable.
 ///
-/// `secondary_percore_area` must be valid for writes, and must not overlap with the `.percore
+/// `secondary_percore_area` must be valid for writes, and must not overlap with the `percore
 /// section.
 ///
 /// You must ensure that this initialisation happens-before any percore variables are accessed
@@ -119,8 +151,12 @@ pub fn percore_size() -> usize {
 /// AtomicBool with release semantics and having other cores wait until they see the written value
 /// with acquire semantics.
 pub unsafe fn percore_copy_secondary_data(secondary_percore_area: *mut [u8]) {
-    let percore_start = (&raw const __PERCORE_START__).cast::<u8>();
+    let percore_start = (&raw const START_PERCORE).cast::<u8>();
     let percore_size = percore_size();
+
+    if percore_size == 0 {
+        return;
+    }
 
     assert!(secondary_percore_area.len().is_multiple_of(percore_size));
     let copies = secondary_percore_area.len() / percore_size;
@@ -128,7 +164,7 @@ pub unsafe fn percore_copy_secondary_data(secondary_percore_area: *mut [u8]) {
     for i in 0..copies {
         let dest = (secondary_percore_area as *mut u8).wrapping_byte_add(i * percore_size);
         // SAFETY: The caller promises that `secondary_percore_area` is valid to write and doesn't
-        // overlap with the `.percore` section.
+        // overlap with the `percore` section.
         unsafe {
             percore_start.copy_to_nonoverlapping(dest, percore_size);
         }
@@ -149,7 +185,7 @@ pub unsafe fn percore_copy_secondary_data(secondary_percore_area: *mut [u8]) {
 /// The offset must point to a valid and initialized percore memory area and it must not
 /// overflow `isize` for any percore variable and core.
 pub unsafe trait PercoreLocalOffset {
-    /// Returns the byte offset of the local core's percore area from the `.percore` section.
+    /// Returns the byte offset of the local core's percore area from the `percore` section.
     fn percore_local_offset() -> isize;
 }
 
@@ -179,7 +215,7 @@ impl<T> LinkedPerCore<T> {
     ///
     /// # Safety
     ///
-    /// The created variable must be a static placed in the `.percore` section and the project must
+    /// The created variable must be a static placed in the `percore` section and the project must
     /// have a valid `PercoreLocalOffset` implementation. It must only be accessed after
     /// `percore_copy_secondary_data` has run.
     pub const unsafe fn new(value: T) -> Self {
@@ -256,30 +292,55 @@ mod tests {
     use super::*;
     use crate as percore;
     use crate::ExceptionFree;
-    use core::{cell::RefCell, num::NonZero};
+    use core::{cell::RefCell, num::NonZero, ptr::NonNull};
+    use std::{thread, thread_local};
 
-    #[percore]
-    static VALUE: ExceptionLock<RefCell<u64>> =
-        ExceptionLock::new(RefCell::new(0xabcd_ef01_2345_6789));
+    // We simulate cores with threads for unit tests, so we use a thread-local for the percore
+    // region of each thread.
+    thread_local! {
+        static PERCORE_REGION: RefCell<Option<NonNull<[u8]>>> = RefCell::new(None);
+    }
 
     percore_local_offset!(PercoreLocalOffsetImpl);
     struct PercoreLocalOffsetImpl;
 
-    // SAFETY: Tests use the initialized primary-core value at offset zero.
+    // SAFETY: The offset returned always points to a region allocated for the core, initialised
+    // with a copy of the percore section.
     unsafe impl PercoreLocalOffset for PercoreLocalOffsetImpl {
         fn percore_local_offset() -> isize {
-            0
+            PERCORE_REGION.with_borrow_mut(|region| {
+                let region = region.get_or_insert_with(|| {
+                    let new_region = Box::into_raw(vec![0; percore_size()].into_boxed_slice());
+                    // SAFETY: new_region is valid for writes because we just allocated it, and no
+                    // percore variables have been accessed on this core yet because this is the
+                    // first time percore_local_offset has been called.
+                    unsafe {
+                        percore_copy_secondary_data(new_region);
+                    }
+                    NonNull::new(new_region).unwrap()
+                });
+                // Calculate offset.
+                isize::try_from(region.addr().get())
+                    .unwrap()
+                    .checked_sub((&raw const START_PERCORE).addr().try_into().unwrap())
+                    .unwrap()
+            })
         }
     }
 
     #[test]
     fn test_percore_derive() {
+        #[percore]
+        static VALUE: ExceptionLock<RefCell<u64>> =
+            ExceptionLock::new(RefCell::new(0xabcd_ef01_2345_6789));
+
+        // SAFETY: There are no exceptions in the simulated environment of the tests.
         let token = unsafe { ExceptionFree::new() };
 
-        assert_eq!(0xabcd_ef01_2345_6789, *VALUE.get().borrow(token).borrow());
+        assert_eq!(*VALUE.get().borrow(token).borrow(), 0xabcd_ef01_2345_6789);
 
         *VALUE.get().borrow_mut(token) = 10;
-        assert_eq!(10, *VALUE.get().borrow(token).borrow());
+        assert_eq!(*VALUE.get().borrow(token).borrow(), 10);
     }
 
     #[test]
@@ -287,5 +348,31 @@ mod tests {
         #[percore]
         static VALUE: ExceptionLock<NonZero<u64>> =
             ExceptionLock::new(unsafe { NonZero::new_unchecked(42) });
+    }
+
+    #[test]
+    fn multiple_cores() {
+        // SAFETY: There are no exceptions in the simulated environment of the tests.
+        let token = unsafe { ExceptionFree::new() };
+
+        #[percore]
+        static VALUE: ExceptionLock<RefCell<u64>> = ExceptionLock::new(RefCell::new(42));
+
+        assert_eq!(*VALUE.get().borrow_mut(token), 42);
+        *VALUE.get().borrow_mut(token) = 1;
+        assert_eq!(*VALUE.get().borrow_mut(token), 1);
+
+        thread::spawn(|| {
+            // SAFETY: There are no exceptions in the simulated environment of the tests.
+            let token = unsafe { ExceptionFree::new() };
+
+            assert_eq!(*VALUE.get().borrow_mut(token), 42);
+            *VALUE.get().borrow_mut(token) = 2;
+            assert_eq!(*VALUE.get().borrow_mut(token), 2);
+        })
+        .join()
+        .unwrap();
+
+        assert_eq!(*VALUE.get().borrow_mut(token), 1);
     }
 }

@@ -4,8 +4,18 @@
 
 ### Bugfixes
 
-- Don't allow unsafe code in initialisation expression of `#[percore]` variables.
 - Fixed undefined behaviour in `LinkedPerCore::get` due to pointer provenance.
+
+### Breaking changes
+
+- Don't allow unsafe code in initialisation expression of `#[percore]` variables.
+- Renamed `__PERCORE_START__`, `__PERCORE_END`, `__PERCORE_SECONDARD_START__` and
+  `__PERCORE_SECONDARY_END` static variables to `START_PERCORE`, `STOP_PERCORE`,
+  `START_PERCORE_SECONDARY` and `STOP_PERCORE_SECONDARY`. Renamed the corresponding symbols to
+  `__start_percore`, `__stop_percore` and so on on most platforms.
+- Renamed the `.percore` linker section to `percore`, and `.percore_secondary` to
+  `percore_secondary`. This lets the linker automatically generate the start and stop symbols as
+  above.
 
 ## 0.2.5
 
