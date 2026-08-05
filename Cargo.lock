@@ -51,13 +51,56 @@ dependencies = [
 
 [[package]]
 name = "arm-sysregs"
-version = "0.3.3"
+version = "0.4.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "8020ecabe88c86e2a7d9011e1a881827cc06ddbb0756339a7e474de25b67ade8"
+checksum = "377602e4256d8c07771de23f18deeec7e0b15e4b55f566c3f3bb2a1d6ee0da50"
 dependencies = [
+ "arm-sysregs-aarch32",
+ "arm-sysregs-common",
+ "arm-sysregs-el0",
+ "arm-sysregs-el1",
+]
+
+[[package]]
+name = "arm-sysregs-aarch32"
+version = "0.4.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "e0bb51b52291b6fd6223bca38043e85ac9c18c0180a4098809e3b3954c2c0842"
+dependencies = [
+ "arm-sysregs-common",
  "bitflags",
+]
+
+[[package]]
+name = "arm-sysregs-common"
+version = "0.4.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "9a4c8f79ed92200bf954b76d2eced94115b8f6677103652504eda1059a07739a"
+dependencies = [
  "num_enum",
  "paste",
+]
+
+[[package]]
+name = "arm-sysregs-el0"
+version = "0.4.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "207069aab5de955e8f5f88c0cf64c8403084f650a7295524ea61220bea5c4f6c"
+dependencies = [
+ "arm-sysregs-aarch32",
+ "arm-sysregs-common",
+ "bitflags",
+]
+
+[[package]]
+name = "arm-sysregs-el1"
+version = "0.4.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "9baf952c54557a9d47cc268a72a27252af23b351df2d94a32f65160f1de79c77"
+dependencies = [
+ "arm-sysregs-common",
+ "arm-sysregs-el0",
+ "bitflags",
 ]
 
 [[package]]
