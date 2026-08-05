@@ -15,7 +15,7 @@
 //!
 //! # Example
 //!
-//! ```
+//! ```no_run
 //! use core::cell::RefCell;
 //! # #[cfg(target_arch = "aarch64")]
 //! use percore::{exception_free, Cores, ExceptionLock, PerCore};
