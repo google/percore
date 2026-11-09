@@ -64,6 +64,7 @@ impl Drop for ExceptionGuard {
 /// Only IRQs, FIQs and SErrors can be masked. Synchronous exceptions cannot be masked and so may
 /// still occur.
 #[cfg(any(target_arch = "aarch64", target_arch = "arm"))]
+#[inline]
 pub fn exception_free<T>(f: impl FnOnce(ExceptionFree<'_>) -> T) -> T {
     // Mask all exceptions and save previous mask state.
     // SAFETY: We drop the scope guard after the lifetime of the token ends. Any other
